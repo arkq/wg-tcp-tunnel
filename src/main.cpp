@@ -17,6 +17,7 @@
 #include <boost/log/trivial.hpp>
 #include <boost/program_options.hpp>
 
+#include "tcp2udp.h"
 #include "version.h"
 
 namespace asio = boost::asio;
@@ -141,6 +142,14 @@ int main(int argc, char * argv[]) {
 		          << " must be given" << std::endl;
 		return EXIT_FAILURE;
 	}
+
+	asio::io_context ioc;
+	wg::tunnel::tcp2udp tcp2udp(ioc, ep_src_tcp, ep_dst_udp);
+
+	if (is_server)
+		tcp2udp.init();
+
+	ioc.run();
 
 	return EXIT_SUCCESS;
 }

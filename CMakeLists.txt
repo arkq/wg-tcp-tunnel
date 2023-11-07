@@ -17,7 +17,8 @@ project(
 find_package(Boost 1.40.0 REQUIRED COMPONENTS log program_options)
 find_package(Threads REQUIRED)
 
-add_executable(wg-tcp-tunnel src/main.cpp)
+add_executable(wg-tcp-tunnel src/main.cpp src/tcp2udp.cpp)
+target_compile_features(wg-tcp-tunnel PRIVATE cxx_std_17)
 
 target_compile_definitions(wg-tcp-tunnel PRIVATE PROJECT_NAME="${PROJECT_NAME}")
 target_compile_definitions(wg-tcp-tunnel PRIVATE PROJECT_VERSION="${PROJECT_VERSION}")
