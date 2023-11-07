@@ -12,19 +12,25 @@
 #include <string>
 
 #include <boost/asio.hpp>
+#include <boost/log/core.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/trivial.hpp>
 #include <boost/program_options.hpp>
 
 #include "version.h"
 
 namespace asio = boost::asio;
+namespace logging = boost::log;
 namespace po = boost::program_options;
 
 namespace boost {
+
 namespace asio {
 namespace ip {
 
 template <typename T>
 void validate(boost::any & v, const std::vector<std::string> & values, T *, int) {
+	po::validators::check_first_occurrence(v);
 	const std::string & s = po::validators::get_single_string(values);
 	auto pos = s.find_last_of(':');
 	if (pos == std::string::npos)
@@ -45,6 +51,28 @@ void validate(boost::any & v, const std::vector<std::string> & values, T *, int)
 
 }; // namespace ip
 }; // namespace asio
+
+namespace program_options {
+
+class counter : public typed_value<std::size_t> {
+public:
+	counter(std::size_t * store = nullptr) : typed_value<std::size_t>(store), m_count(0) {
+		// Make counter a non-value option
+		default_value(0);
+		zero_tokens();
+	}
+	virtual ~counter() = default;
+	virtual void xparse(boost::any & store, const std::vector<std::string> &) const {
+		// Increment counter on each option occurrence
+		store = boost::any(++m_count);
+	}
+
+private:
+	mutable std::size_t m_count;
+};
+
+}; // namespace program_options
+
 }; // namespace boost
 
 int main(int argc, char * argv[]) {
@@ -53,6 +81,7 @@ int main(int argc, char * argv[]) {
 	asio::ip::udp::endpoint ep_dst_udp;
 	asio::ip::udp::endpoint ep_src_udp;
 	asio::ip::tcp::endpoint ep_dst_tcp;
+	std::size_t verbose;
 
 	po::options_description options("Options");
 	auto o_builder = options.add_options();
@@ -62,6 +91,7 @@ int main(int argc, char * argv[]) {
 	o_builder("dst-udp,u", po::value(&ep_dst_udp), "destination UDP address and port");
 	o_builder("src-udp,U", po::value(&ep_src_udp), "source UDP address and port");
 	o_builder("dst-tcp,t", po::value(&ep_dst_tcp), "destination TCP address and port");
+	o_builder("verbose,v", new po::counter(&verbose), "increase verbosity level");
 
 	po::variables_map args;
 	try {
@@ -76,12 +106,40 @@ int main(int argc, char * argv[]) {
 		std::cout << "Usage:" << std::endl
 		          << "  " << PROJECT_NAME << " [OPTION]..." << std::endl
 		          << std::endl
-		          << options << std::endl;
+		          << options << std::endl
+		          << "Examples:" << std::endl
+		          << "  " << PROJECT_NAME << " --src-tcp=127.0.0.1:12345 --dst-udp=127.0.0.1:51820"
+		          << std::endl
+		          << "  " << PROJECT_NAME << " --src-udp=127.0.0.1:51821 --dst-tcp=127.0.0.1:12345"
+		          << std::endl;
 		return EXIT_SUCCESS;
 	}
 	if (args.count("version")) {
 		std::cout << PROJECT_NAME << " " << PROJECT_VERSION << std::endl;
 		return EXIT_SUCCESS;
+	}
+
+	switch (verbose) {
+	case 0:
+		logging::core::get()->set_filter(logging::trivial::severity >= logging::trivial::info);
+		break;
+	case 1:
+		logging::core::get()->set_filter(logging::trivial::severity >= logging::trivial::debug);
+		break;
+	default:
+		logging::core::get()->set_filter(logging::trivial::severity >= logging::trivial::trace);
+		break;
+	}
+
+	const bool is_server = ep_src_tcp.port() != 0 && ep_dst_udp.port() != 0;
+	const bool is_client = ep_src_udp.port() != 0 && ep_dst_tcp.port() != 0;
+	if (!is_server && !is_client) {
+		std::cerr << PROJECT_NAME << ": one of "
+		          << "'--src-tcp' && '--dst-udp'"
+		          << " or "
+		          << "'--src-udp' && '--dst-tcp'"
+		          << " must be given" << std::endl;
+		return EXIT_FAILURE;
 	}
 
 	return EXIT_SUCCESS;

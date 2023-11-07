@@ -14,7 +14,7 @@ project(
 	DESCRIPTION "WireGuard TCP tunneling"
 	LANGUAGES CXX)
 
-find_package(Boost 1.40.0 REQUIRED COMPONENTS program_options)
+find_package(Boost 1.40.0 REQUIRED COMPONENTS log program_options)
 find_package(Threads REQUIRED)
 
 add_executable(wg-tcp-tunnel src/main.cpp)
@@ -22,6 +22,7 @@ add_executable(wg-tcp-tunnel src/main.cpp)
 target_compile_definitions(wg-tcp-tunnel PRIVATE PROJECT_NAME="${PROJECT_NAME}")
 target_compile_definitions(wg-tcp-tunnel PRIVATE PROJECT_VERSION="${PROJECT_VERSION}")
 
+target_link_libraries(wg-tcp-tunnel PRIVATE Boost::log)
 target_link_libraries(wg-tcp-tunnel PRIVATE Boost::program_options)
 target_link_libraries(wg-tcp-tunnel PRIVATE Threads::Threads)
 
