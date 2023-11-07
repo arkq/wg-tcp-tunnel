@@ -18,6 +18,7 @@
 #include <boost/program_options.hpp>
 
 #include "tcp2udp.h"
+#include "udp2tcp.h"
 #include "version.h"
 
 namespace asio = boost::asio;
@@ -145,9 +146,12 @@ int main(int argc, char * argv[]) {
 
 	asio::io_context ioc;
 	wg::tunnel::tcp2udp tcp2udp(ioc, ep_src_tcp, ep_dst_udp);
+	wg::tunnel::udp2tcp udp2tcp(ioc, ep_src_udp, ep_dst_tcp);
 
 	if (is_server)
 		tcp2udp.init();
+	if (is_client)
+		udp2tcp.init();
 
 	ioc.run();
 
