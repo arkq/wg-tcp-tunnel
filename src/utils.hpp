@@ -44,7 +44,7 @@ struct header {
 	bool valid() const {
 		boost::crc_16_type crc16;
 		crc16.process_bytes(this, sizeof(*this) - sizeof(m_crc16));
-		return crc16.checksum() == m_crc16;
+		return m_length > 0 && crc16.checksum() == m_crc16;
 	}
 
 	uint16_t m_src_port;

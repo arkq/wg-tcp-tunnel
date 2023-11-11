@@ -34,8 +34,6 @@ public:
 
 private:
 	std::string to_string(bool verbose = false);
-	auto tcp_ep_local() const { return m_socket_tcp_dest.local_endpoint(); }
-	auto tcp_ep_remote() const { return m_socket_tcp_dest.remote_endpoint(); }
 
 	void do_connect();
 	void do_connect_handler(const boost::system::error_code & ec);

@@ -38,8 +38,8 @@ std::string udp2tcp::to_string(bool verbose) {
 		str += " -> " + utils::to_string(m_ep_udp_acc);
 	str += " >> ";
 	if (verbose)
-		str += utils::to_string(tcp_ep_local()) + " -> ";
-	str += utils::to_string(tcp_ep_remote());
+		str += utils::to_string(m_socket_tcp_dest.local_endpoint()) + " -> ";
+	str += utils::to_string(m_socket_tcp_dest.remote_endpoint());
 	return str;
 }
 

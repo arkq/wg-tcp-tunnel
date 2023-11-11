@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <boost/asio.hpp>
 
@@ -27,33 +28,56 @@ public:
 	tcp2udp(asio::io_context & ioc, const asio::ip::tcp::endpoint & ep_tcp_src,
 	        const asio::ip::udp::endpoint & ep_udp_dest)
 	    : m_io_context(ioc), m_ep_tcp_acc(ep_tcp_src), m_ep_udp_dest(ep_udp_dest),
-	      m_tcp_acceptor(ioc, ep_tcp_src), m_socket_udp_dest(ioc) {}
+	      m_tcp_acceptor(ioc, ep_tcp_src) {}
 	~tcp2udp() = default;
 
 	void init();
 
 private:
-	std::string to_string(utils::ip::tcp::socket::ptr peer, bool verbose = false);
-	auto udp_ep_local() const { return m_socket_udp_dest.local_endpoint(); }
-	auto udp_ep_remote() const { return m_socket_udp_dest.remote_endpoint(); }
+	union tcp {
+		class peer : public std::enable_shared_from_this<peer> {
+		public:
+			using ptr = std::shared_ptr<peer>;
+
+			peer(tcp2udp & tcp2udp)
+			    : m_socket(tcp2udp.m_io_context), m_socket_udp_dest(tcp2udp.m_io_context) {
+				m_socket_udp_dest.connect(tcp2udp.m_ep_udp_dest);
+			}
+
+			auto & tcp() { return m_socket; }
+			auto & udp() { return m_socket_udp_dest; }
+
+			bool init() { return std::exchange(m_initialized, true); }
+
+			template <typename... A> auto send(A... args) { return m_socket.send(args...); }
+			auto local_endpoint() const { return m_socket.local_endpoint(); }
+			auto remote_endpoint() const { return m_socket.remote_endpoint(); }
+
+		private:
+			asio::ip::tcp::socket m_socket;
+			asio::ip::udp::socket m_socket_udp_dest;
+			bool m_initialized = false;
+		};
+	};
+
+	std::string to_string(tcp::peer::ptr peer, bool verbose = false);
 
 	void do_accept();
-	void do_accept_handler(utils::ip::tcp::socket::ptr peer, const boost::system::error_code & ec);
+	void do_accept_handler(tcp::peer::ptr peer, const boost::system::error_code & ec);
 
-	void do_send_init(utils::ip::tcp::socket::ptr peer);
-	void do_send(utils::ip::tcp::socket::ptr peer, size_t rlen, bool ctrl = false);
-	void do_send_handler(utils::ip::tcp::socket::ptr peer, const boost::system::error_code & ec,
+	void do_send_init(tcp::peer::ptr peer);
+	void do_send(tcp::peer::ptr peer, size_t rlen, bool ctrl = false);
+	void do_send_handler(tcp::peer::ptr peer, const boost::system::error_code & ec,
 	                     utils::ip::tcp::buffer::ptr buffer, size_t length, bool ctrl);
 
-	void do_recv(utils::ip::tcp::socket::ptr peer);
-	void do_recv_handler(utils::ip::tcp::socket::ptr peer, const boost::system::error_code & ec,
+	void do_recv(tcp::peer::ptr peer);
+	void do_recv_handler(tcp::peer::ptr peer, const boost::system::error_code & ec,
 	                     utils::ip::udp::buffer::ptr buffer, size_t length);
 
 	asio::io_context & m_io_context;
 	asio::ip::tcp::endpoint m_ep_tcp_acc;
 	asio::ip::udp::endpoint m_ep_udp_dest;
 	asio::ip::tcp::acceptor m_tcp_acceptor;
-	asio::ip::udp::socket m_socket_udp_dest;
 };
 
 }; // namespace tunnel
