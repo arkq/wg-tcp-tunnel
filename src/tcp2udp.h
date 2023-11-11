@@ -38,9 +38,10 @@ private:
 	void do_accept();
 	void do_accept_handler(utils::ip::tcp::socket::ptr peer, const boost::system::error_code & ec);
 
-	void do_send(utils::ip::tcp::socket::ptr peer);
+	void do_send_init(utils::ip::tcp::socket::ptr peer);
+	void do_send(utils::ip::tcp::socket::ptr peer, size_t rlen, bool ctrl = false);
 	void do_send_handler(utils::ip::tcp::socket::ptr peer, const boost::system::error_code & ec,
-	                     utils::ip::tcp::buffer::ptr buffer, size_t length);
+	                     utils::ip::tcp::buffer::ptr buffer, size_t length, bool ctrl);
 
 	void do_recv(utils::ip::tcp::socket::ptr peer);
 	void do_recv_handler(utils::ip::tcp::socket::ptr peer, const boost::system::error_code & ec,

@@ -42,9 +42,10 @@ private:
 	void do_send_handler(const boost::system::error_code & ec, utils::ip::udp::buffer::ptr buffer,
 	                     size_t length);
 
-	void do_recv();
+	void do_recv_init();
+	void do_recv(size_t rlen, bool ctrl = false);
 	void do_recv_handler(const boost::system::error_code & ec, utils::ip::tcp::buffer::ptr buffer,
-	                     size_t length);
+	                     size_t length, bool ctrl);
 
 	asio::ip::udp::endpoint m_ep_udp_acc;
 	asio::ip::udp::endpoint m_ep_udp_sender;

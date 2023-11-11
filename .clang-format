@@ -6,6 +6,7 @@ TabWidth: 4
 ---
 Language: Cpp
 AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: Inline
 Cpp11BracedListStyle: false
 IndentPPDirectives: AfterHash
 PointerAlignment: Middle

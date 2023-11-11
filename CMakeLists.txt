@@ -15,7 +15,6 @@ project(
 	LANGUAGES CXX)
 
 find_package(Boost 1.40.0 REQUIRED COMPONENTS log program_options)
-find_package(Threads REQUIRED)
 
 add_executable(wg-tcp-tunnel src/main.cpp src/tcp2udp.cpp src/udp2tcp.cpp)
 target_compile_features(wg-tcp-tunnel PRIVATE cxx_std_17)
@@ -25,6 +24,5 @@ target_compile_definitions(wg-tcp-tunnel PRIVATE PROJECT_VERSION="${PROJECT_VERS
 
 target_link_libraries(wg-tcp-tunnel PRIVATE Boost::log)
 target_link_libraries(wg-tcp-tunnel PRIVATE Boost::program_options)
-target_link_libraries(wg-tcp-tunnel PRIVATE Threads::Threads)
 
 install(TARGETS wg-tcp-tunnel RUNTIME DESTINATION bin)
