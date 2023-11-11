@@ -32,6 +32,17 @@ void udp2tcp::init() {
 	do_send();
 }
 
+std::string udp2tcp::to_string(bool verbose) {
+	std::string str = utils::to_string(m_ep_udp_sender);
+	if (verbose)
+		str += " -> " + utils::to_string(m_ep_udp_acc);
+	str += " >> ";
+	if (verbose)
+		str += utils::to_string(tcp_ep_local()) + " -> ";
+	str += utils::to_string(tcp_ep_remote());
+	return str;
+}
+
 void udp2tcp::do_connect() {
 	auto handler = std::bind(&udp2tcp::do_connect_handler, this, _1);
 	m_socket_tcp_dest.async_connect(m_ep_tcp_dest, handler);
@@ -60,8 +71,7 @@ void udp2tcp::do_send_handler(const boost::system::error_code & ec,
                               utils::ip::udp::buffer::ptr buffer, size_t length) {
 
 	if (ec) {
-		LOG(error) << "send [" << utils::to_string(m_ep_udp_sender) << " >> "
-		           << utils::to_string(tcp_ep_remote()) << "]: " << ec.message();
+		LOG(error) << "send [" << to_string() << "]: " << ec.message();
 		// Try to recover from error
 		do_send();
 		return;
@@ -70,10 +80,7 @@ void udp2tcp::do_send_handler(const boost::system::error_code & ec,
 	if (!m_socket_tcp_dest.is_open()) {
 		do_connect();
 	} else {
-		LOG(trace) << "send [" << utils::to_string(m_ep_udp_sender) << " -> "
-		           << utils::to_string(m_ep_udp_acc) << " >> " << utils::to_string(tcp_ep_local())
-		           << " -> " << utils::to_string(tcp_ep_remote()) << "]: len=" << length;
-
+		LOG(trace) << "send [" << to_string(true) << "]: len=" << length;
 		// Send payload with attached UDP header
 		utils::ip::udp::header header(m_ep_udp_sender.port(), m_ep_udp_acc.port(), length);
 		std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
@@ -99,8 +106,7 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec,
                               utils::ip::tcp::buffer::ptr buffer, size_t length, bool ctrl) {
 
 	if (ec) {
-		LOG(error) << "recv [" << utils::to_string(tcp_ep_remote()) << " >> "
-		           << utils::to_string(m_ep_udp_sender) << "]: " << ec.message();
+		LOG(error) << "recv [" << to_string() << "]: " << ec.message();
 		if (ec == asio::error::eof) {
 			m_socket_tcp_dest.close();
 			return;
@@ -110,15 +116,12 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec,
 		return;
 	}
 
-	LOG(trace) << "recv [" << utils::to_string(tcp_ep_remote()) << " -> "
-	           << utils::to_string(tcp_ep_local()) << " >> " << utils::to_string(m_ep_udp_acc)
-	           << " -> " << utils::to_string(m_ep_udp_sender) << "]: len=" << length;
+	LOG(trace) << "recv [" << to_string(true) << "]: len=" << length;
 
 	if (ctrl) {
 		auto header = reinterpret_cast<const utils::ip::udp::header *>(buffer->data().data());
 		if (!header->valid()) {
-			LOG(error) << "recv [" << utils::to_string(tcp_ep_remote()) << " >> "
-			           << utils::to_string(m_ep_udp_sender) << "]: Invalid UDP header";
+			LOG(error) << "recv [" << to_string() << "]: Invalid UDP header";
 			// Handle next TCP packet
 			do_recv_init();
 			return;

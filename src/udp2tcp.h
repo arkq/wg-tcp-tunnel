@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <string>
 
 #include <boost/asio.hpp>
 
@@ -32,6 +33,7 @@ public:
 	void init();
 
 private:
+	std::string to_string(bool verbose = false);
 	auto tcp_ep_local() const { return m_socket_tcp_dest.local_endpoint(); }
 	auto tcp_ep_remote() const { return m_socket_tcp_dest.remote_endpoint(); }
 

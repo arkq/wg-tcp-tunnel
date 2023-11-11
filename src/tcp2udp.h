@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <string>
 
 #include <boost/asio.hpp>
 
@@ -32,6 +33,7 @@ public:
 	void init();
 
 private:
+	std::string to_string(utils::ip::tcp::socket::ptr peer, bool verbose = false);
 	auto udp_ep_local() const { return m_socket_udp_dest.local_endpoint(); }
 	auto udp_ep_remote() const { return m_socket_udp_dest.remote_endpoint(); }
 

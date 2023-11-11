@@ -33,6 +33,17 @@ void tcp2udp::init() {
 	do_accept();
 }
 
+std::string tcp2udp::to_string(utils::ip::tcp::socket::ptr peer, bool verbose) {
+	std::string str = utils::to_string(peer->remote_endpoint());
+	if (verbose)
+		str += " -> " + utils::to_string(peer->local_endpoint());
+	str += " >> ";
+	if (verbose)
+		str += utils::to_string(udp_ep_local()) + " -> ";
+	str += utils::to_string(udp_ep_remote());
+	return str;
+}
+
 void tcp2udp::do_accept() {
 	auto peer = std::make_shared<asio::ip::tcp::socket>(m_io_context);
 	auto handler = std::bind(&tcp2udp::do_accept_handler, this, peer, _1);
@@ -70,8 +81,7 @@ void tcp2udp::do_send_handler(utils::ip::tcp::socket::ptr peer,
                               utils::ip::tcp::buffer::ptr buffer, size_t length, bool ctrl) {
 
 	if (ec) {
-		LOG(error) << "send [" << utils::to_string(peer->remote_endpoint()) << " >> "
-		           << utils::to_string(udp_ep_remote()) << "]: " << ec.message();
+		LOG(error) << "send [" << to_string(peer) << "]: " << ec.message();
 		if (ec == asio::error::eof) {
 			// Stop UDP receiver if there is no TCP peer
 			m_socket_udp_dest.cancel();
@@ -82,16 +92,12 @@ void tcp2udp::do_send_handler(utils::ip::tcp::socket::ptr peer,
 		return;
 	}
 
-	LOG(trace) << "send [" << utils::to_string(peer->remote_endpoint()) << " -> "
-	           << utils::to_string(peer->local_endpoint()) << " >> "
-	           << utils::to_string(udp_ep_local()) << " -> " << utils::to_string(udp_ep_remote())
-	           << "]: len=" << length;
+	LOG(trace) << "send [" << to_string(peer, true) << "]: len=" << length;
 
 	if (ctrl) {
 		auto header = reinterpret_cast<const utils::ip::udp::header *>(buffer->data().data());
 		if (!header->valid()) {
-			LOG(error) << "send [" << utils::to_string(peer->remote_endpoint()) << " >> "
-			           << utils::to_string(udp_ep_remote()) << "]: Invalid UDP header";
+			LOG(error) << "send [" << to_string(peer) << "]: Invalid UDP header";
 			// Handle next TCP packet
 			do_send_init(peer);
 			return;
@@ -118,8 +124,7 @@ void tcp2udp::do_recv_handler(utils::ip::tcp::socket::ptr peer,
                               utils::ip::udp::buffer::ptr buffer, size_t length) {
 
 	if (ec) {
-		LOG(error) << "recv [" << utils::to_string(udp_ep_remote()) << " >> "
-		           << utils::to_string(peer->remote_endpoint()) << "]: " << ec.message();
+		LOG(error) << "recv [" << to_string(peer) << "]: " << ec.message();
 		if (ec == asio::error::operation_aborted)
 			return;
 		// Try to recover from error
@@ -127,11 +132,7 @@ void tcp2udp::do_recv_handler(utils::ip::tcp::socket::ptr peer,
 		return;
 	}
 
-	LOG(trace) << "recv [" << utils::to_string(udp_ep_remote()) << " -> "
-	           << utils::to_string(udp_ep_local()) << " >> "
-	           << utils::to_string(peer->local_endpoint()) << " -> "
-	           << utils::to_string(peer->remote_endpoint()) << " len=" << length;
-
+	LOG(trace) << "recv [" << to_string(peer, true) << "]: len=" << length;
 	// Send payload with attached UDP header
 	utils::ip::udp::header header(udp_ep_remote().port(), udp_ep_local().port(), length);
 	std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
