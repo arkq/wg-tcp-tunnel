@@ -14,6 +14,8 @@ project(
 	DESCRIPTION "WireGuard TCP tunneling"
 	LANGUAGES CXX)
 
+option(ENABLE_NGROK "Enable ngrok support" OFF)
+
 find_package(Boost 1.40.0 REQUIRED COMPONENTS log program_options)
 
 add_executable(wg-tcp-tunnel src/main.cpp src/tcp2udp.cpp src/udp2tcp.cpp)
@@ -24,5 +26,12 @@ target_compile_definitions(wg-tcp-tunnel PRIVATE PROJECT_VERSION="${PROJECT_VERS
 
 target_link_libraries(wg-tcp-tunnel PRIVATE Boost::log)
 target_link_libraries(wg-tcp-tunnel PRIVATE Boost::program_options)
+
+if(ENABLE_NGROK)
+	find_package(OpenSSL REQUIRED)
+	target_sources(wg-tcp-tunnel PRIVATE src/ngrok.cpp)
+	target_compile_definitions(wg-tcp-tunnel PRIVATE ENABLE_NGROK)
+	target_link_libraries(wg-tcp-tunnel PRIVATE OpenSSL::SSL)
+endif()
 
 install(TARGETS wg-tcp-tunnel RUNTIME DESTINATION bin)

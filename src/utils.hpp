@@ -11,6 +11,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 #include <boost/asio.hpp>
@@ -64,6 +65,13 @@ using ptr = std::shared_ptr<asio::ip::udp::socket>;
 }; // namespace socket
 
 }; // namespace ip::udp
+
+static inline std::pair<std::string, uint16_t> split_host_port(const std::string & str) {
+	auto pos = str.find_last_of(':');
+	if (pos == std::string::npos)
+		throw std::runtime_error("Unable to split host and port");
+	return { str.substr(0, pos), std::stoi(str.substr(pos + 1)) };
+}
 
 static inline std::string to_string(const asio::ip::tcp::endpoint & ep) {
 	return "tcp:" + ep.address().to_string() + ":" + std::to_string(ep.port());

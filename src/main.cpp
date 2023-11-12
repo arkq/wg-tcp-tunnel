@@ -17,6 +17,7 @@
 #include <boost/log/trivial.hpp>
 #include <boost/program_options.hpp>
 
+#include "ngrok.h"
 #include "tcp2udp.h"
 #include "udp2tcp.h"
 #include "version.h"
@@ -95,6 +96,16 @@ int main(int argc, char * argv[]) {
 	o_builder("dst-tcp,t", po::value(&ep_dst_tcp), "destination TCP address and port");
 	o_builder("verbose,v", new po::counter(&verbose), "increase verbosity level");
 
+#if ENABLE_NGROK
+	std::string ngrok_dst_tcp_endpoint;
+	// By default API key is read from the environment variable
+	std::string ngrok_api_key = "ENV:NGROK_API_KEY";
+	o_builder("ngrok-dst-tcp-endpoint", po::value(&ngrok_dst_tcp_endpoint),
+	          "ngrok endpoint for destination TCP");
+	o_builder("ngrok-api-key", po::value(&ngrok_api_key),
+	          "ngrok API key, default: 'ENV:NGROK_API_KEY'");
+#endif
+
 	po::variables_map args;
 	try {
 		po::store(po::parse_command_line(argc, argv, options), args);
@@ -132,6 +143,39 @@ int main(int argc, char * argv[]) {
 		logging::core::get()->set_filter(logging::trivial::severity >= logging::trivial::trace);
 		break;
 	}
+
+#if ENABLE_NGROK
+	if (!ngrok_dst_tcp_endpoint.empty()) {
+
+		if (ngrok_api_key.substr(0, 4) == "ENV:")
+			ngrok_api_key = std::getenv(ngrok_api_key.substr(4).c_str()) ?: "";
+
+		try {
+			wg::ngrok::client ngrok(ngrok_api_key);
+			auto endpoints = ngrok.endpoints();
+
+			if (ngrok_dst_tcp_endpoint == "list") {
+				for (const auto & ep : endpoints)
+					std::cout << ep << std::endl;
+				return EXIT_SUCCESS;
+			}
+
+			if (ngrok_dst_tcp_endpoint == "tcp") {
+				for (const auto & ep : endpoints) {
+					if (ep.proto == wg::ngrok::endpoint::protocol::tcp &&
+					    ep.type == wg::ngrok::endpoint::etype::ephemeral) {
+						ep_dst_tcp = asio::ip::tcp::endpoint(ep.address(), ep.port);
+						break;
+					}
+				}
+			}
+
+		} catch (const std::exception & e) {
+			std::cerr << PROJECT_NAME << ": " << e.what() << std::endl;
+			return EXIT_FAILURE;
+		}
+	}
+#endif
 
 	const bool is_server = ep_src_tcp.port() != 0 && ep_dst_udp.port() != 0;
 	const bool is_client = ep_src_udp.port() != 0 && ep_dst_tcp.port() != 0;
