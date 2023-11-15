@@ -26,9 +26,9 @@ using std::size_t;
 class tcp2udp {
 public:
 	tcp2udp(asio::io_context & ioc, const asio::ip::tcp::endpoint & ep_tcp_src,
-	        const asio::ip::udp::endpoint & ep_udp_dest)
+	        const asio::ip::udp::endpoint & ep_udp_dest, unsigned int tcp_keep_alive_idle_time)
 	    : m_io_context(ioc), m_ep_tcp_acc(ep_tcp_src), m_ep_udp_dest(ep_udp_dest),
-	      m_tcp_acceptor(ioc, ep_tcp_src) {}
+	      m_tcp_acceptor(ioc, ep_tcp_src), m_tcp_keep_alive_idle_time(tcp_keep_alive_idle_time) {}
 	~tcp2udp() = default;
 
 	void init();
@@ -48,6 +48,7 @@ private:
 			auto & udp() { return m_socket_udp_dest; }
 
 			bool init() { return std::exchange(m_initialized, true); }
+			void keepalive(unsigned int idle_time);
 
 			template <typename... A> auto send(A... args) { return m_socket.send(args...); }
 			auto local_endpoint() const { return m_socket.local_endpoint(); }
@@ -78,6 +79,7 @@ private:
 	asio::ip::tcp::endpoint m_ep_tcp_acc;
 	asio::ip::udp::endpoint m_ep_udp_dest;
 	asio::ip::tcp::acceptor m_tcp_acceptor;
+	unsigned int m_tcp_keep_alive_idle_time;
 };
 
 }; // namespace tunnel

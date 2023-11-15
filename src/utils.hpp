@@ -81,5 +81,11 @@ static inline std::string to_string(const asio::ip::udp::endpoint & ep) {
 	return "udp:" + ep.address().to_string() + ":" + std::to_string(ep.port());
 }
 
+static inline int socket_set_keep_alive_idle(asio::ip::tcp::socket & socket, int time) {
+	boost::system::error_code ec;
+	socket.set_option(asio::detail::socket_option::integer<IPPROTO_TCP, TCP_KEEPIDLE>(time), ec);
+	return ec.value();
+}
+
 } // namespace utils
 } // namespace wg

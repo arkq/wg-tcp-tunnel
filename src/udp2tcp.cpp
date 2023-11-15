@@ -53,9 +53,18 @@ void udp2tcp::do_connect_handler(const boost::system::error_code & ec) {
 	if (ec) {
 		LOG(error) << "connect [" << utils::to_string(m_ep_tcp_dest) << "]: " << ec.message();
 		m_socket_tcp_dest.close();
+		return;
 	}
 
 	LOG(debug) << "connect [" << utils::to_string(m_ep_tcp_dest) << "]: Connected";
+
+	if (m_tcp_keep_alive_idle_time > 0) {
+		LOG(debug) << "keepalive [" << utils::to_string(m_socket_tcp_dest.remote_endpoint())
+		           << "]: " << m_tcp_keep_alive_idle_time;
+		utils::socket_set_keep_alive_idle(m_socket_tcp_dest, m_tcp_keep_alive_idle_time);
+		m_socket_tcp_dest.set_option(asio::socket_base::keep_alive(true));
+		m_socket_tcp_dest.set_option(asio::socket_base::linger(true, 0));
+	}
 
 	// Start handling TCP packets
 	do_recv_init();

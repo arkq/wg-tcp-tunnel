@@ -27,6 +27,7 @@
 namespace asio = boost::asio;
 namespace logging = boost::log;
 namespace po = boost::program_options;
+using std::size_t;
 
 namespace boost {
 
@@ -59,9 +60,9 @@ void validate(boost::any & v, const std::vector<std::string> & values, T *, int)
 
 namespace program_options {
 
-class counter : public typed_value<std::size_t> {
+class counter : public typed_value<size_t> {
 public:
-	counter(std::size_t * store = nullptr) : typed_value<std::size_t>(store), m_count(0) {
+	counter(size_t * store = nullptr) : typed_value<size_t>(store), m_count(0) {
 		// Make counter a non-value option
 		default_value(0);
 		zero_tokens();
@@ -73,7 +74,7 @@ public:
 	}
 
 private:
-	mutable std::size_t m_count;
+	mutable size_t m_count;
 };
 
 }; // namespace program_options
@@ -83,29 +84,32 @@ private:
 int main(int argc, char * argv[]) {
 
 	asio::ip::tcp::endpoint ep_src_tcp;
-	asio::ip::udp::endpoint ep_dst_udp(asio::ip::make_address("127.0.0.1"), 51820);
+	asio::ip::udp::endpoint ep_dst_udp;
 	asio::ip::udp::endpoint ep_src_udp;
 	asio::ip::tcp::endpoint ep_dst_tcp;
-	std::size_t verbose;
+	unsigned int tcp_keep_alive = 0;
+	size_t verbose;
 
 	po::options_description options("Options");
 	auto o_builder = options.add_options();
 	o_builder("help,h", "print this help message and exit");
 	o_builder("version,V", "print version and exit");
+	o_builder("verbose,v", new po::counter(&verbose), "increase verbosity level");
 	o_builder("src-tcp,T", po::value(&ep_src_tcp), "source TCP address and port");
-	o_builder("dst-udp,u", po::value(&ep_dst_udp),
-	          "destination UDP address and port, default: 127.0.0.1:51820");
+	auto dst_udp_default = asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), 51820);
+	o_builder("dst-udp,u", po::value(&ep_dst_udp)->default_value(dst_udp_default),
+	          "destination UDP address and port");
 	o_builder("src-udp,U", po::value(&ep_src_udp), "source UDP address and port");
 	o_builder("dst-tcp,t", po::value(&ep_dst_tcp), "destination TCP address and port");
-	o_builder("verbose,v", new po::counter(&verbose), "increase verbosity level");
+	o_builder("tcp-keep-alive", po::value(&tcp_keep_alive)->implicit_value(120),
+	          "enable TCP keep-alive on TCP socket(s) optionally specifying the keep-alive "
+	          "idle time in seconds");
 
 #if ENABLE_NGROK
-	// By default API key is read from the environment variable
-	std::string ngrok_api_key = "ENV:NGROK_API_KEY";
-	o_builder("ngrok-api-key", po::value(&ngrok_api_key),
-	          "NGROK API key or 'ENV:VARIABLE' to read the key from the environment variable, "
-	          "default: 'ENV:NGROK_API_KEY'");
+	std::string ngrok_api_key;
 	std::string ngrok_dst_tcp_endpoint;
+	o_builder("ngrok-api-key", po::value(&ngrok_api_key)->default_value("ENV:NGROK_API_KEY"),
+	          "NGROK API key or 'ENV:VARIABLE' to read the key from the environment variable");
 	o_builder("ngrok-dst-tcp-endpoint", po::value(&ngrok_dst_tcp_endpoint),
 	          "NGROK endpoint used to forward TCP traffic; the endpoint can be specified as "
 	          "'id=ID' or 'uri=REGEX', where ID is the endpoint identifier and REGEX is a "
@@ -215,8 +219,8 @@ int main(int argc, char * argv[]) {
 	}
 
 	asio::io_context ioc;
-	wg::tunnel::tcp2udp tcp2udp(ioc, ep_src_tcp, ep_dst_udp);
-	wg::tunnel::udp2tcp udp2tcp(ioc, ep_src_udp, ep_dst_tcp);
+	wg::tunnel::tcp2udp tcp2udp(ioc, ep_src_tcp, ep_dst_udp, tcp_keep_alive);
+	wg::tunnel::udp2tcp udp2tcp(ioc, ep_src_udp, ep_dst_tcp, tcp_keep_alive);
 
 restart:
 

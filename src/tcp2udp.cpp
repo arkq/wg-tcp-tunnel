@@ -49,12 +49,23 @@ void tcp2udp::do_accept() {
 	m_tcp_acceptor.async_accept(peer->tcp(), handler);
 }
 
+void tcp2udp::tcp::peer::keepalive(unsigned int idle_time) {
+	LOG(debug) << "keepalive [" << utils::to_string(m_socket.remote_endpoint())
+	           << "]: " << idle_time;
+	utils::socket_set_keep_alive_idle(m_socket, idle_time);
+	m_socket.set_option(asio::socket_base::keep_alive(true));
+	m_socket.set_option(asio::socket_base::linger(true, 0));
+}
+
 void tcp2udp::do_accept_handler(tcp::peer::ptr peer, const boost::system::error_code & ec) {
 	if (ec) {
 		LOG(error) << "accept [" << utils::to_string(m_ep_tcp_acc) << "]: " << ec.message();
 	} else {
 		LOG(debug) << "accept [" << utils::to_string(m_ep_tcp_acc)
 		           << "]: New connection: peer=" << utils::to_string(peer->remote_endpoint());
+		if (m_tcp_keep_alive_idle_time > 0)
+			// Setup TCP keep-alive on the peer socket
+			peer->keepalive(m_tcp_keep_alive_idle_time);
 		// Start handling TCP packets
 		do_send_init(peer);
 	}
