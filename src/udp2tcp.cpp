@@ -115,11 +115,14 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec,
                               utils::ip::tcp::buffer::ptr buffer, size_t length, bool ctrl) {
 
 	if (ec) {
-		LOG(error) << "recv [" << to_string() << "]: " << ec.message();
-		if (ec == asio::error::eof) {
+		if (ec == asio::error::operation_aborted)
+			return;
+		if (ec == asio::error::eof || ec == asio::error::connection_reset) {
+			LOG(debug) << "recv: Connection closed: peer=" << utils::to_string(m_ep_tcp_dest);
 			m_socket_tcp_dest.close();
 			return;
 		}
+		LOG(error) << "recv [" << to_string() << "]: " << ec.message();
 		// Try to recover from error
 		do_recv_init();
 		return;

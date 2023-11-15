@@ -49,13 +49,15 @@ private:
 
 			bool init() { return std::exchange(m_initialized, true); }
 			void keepalive(unsigned int idle_time);
+			void connected();
 
 			template <typename... A> auto send(A... args) { return m_socket.send(args...); }
 			auto local_endpoint() const { return m_socket.local_endpoint(); }
-			auto remote_endpoint() const { return m_socket.remote_endpoint(); }
+			auto remote_endpoint() const { return m_socket_ep_remote; }
 
 		private:
 			asio::ip::tcp::socket m_socket;
+			asio::ip::tcp::endpoint m_socket_ep_remote;
 			asio::ip::udp::socket m_socket_udp_dest;
 			bool m_initialized = false;
 		};

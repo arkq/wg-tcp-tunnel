@@ -57,15 +57,22 @@ void tcp2udp::tcp::peer::keepalive(unsigned int idle_time) {
 	m_socket.set_option(asio::socket_base::linger(true, 0));
 }
 
+void tcp2udp::tcp::peer::connected() {
+	// Save remote endpoint, so it could be used after the socket is disconnected
+	m_socket_ep_remote = m_socket.remote_endpoint();
+}
+
 void tcp2udp::do_accept_handler(tcp::peer::ptr peer, const boost::system::error_code & ec) {
 	if (ec) {
 		LOG(error) << "accept [" << utils::to_string(m_ep_tcp_acc) << "]: " << ec.message();
 	} else {
-		LOG(debug) << "accept [" << utils::to_string(m_ep_tcp_acc)
-		           << "]: New connection: peer=" << utils::to_string(peer->remote_endpoint());
+		LOG(debug) << "accept [" << utils::to_string(m_ep_tcp_acc) << "]: New connection: peer="
+		           << utils::to_string(peer->tcp().remote_endpoint());
 		if (m_tcp_keep_alive_idle_time > 0)
 			// Setup TCP keep-alive on the peer socket
 			peer->keepalive(m_tcp_keep_alive_idle_time);
+		// Mark peer as connected
+		peer->connected();
 		// Start handling TCP packets
 		do_send_init(peer);
 	}
@@ -87,12 +94,14 @@ void tcp2udp::do_send_handler(tcp::peer::ptr peer, const boost::system::error_co
                               utils::ip::tcp::buffer::ptr buffer, size_t length, bool ctrl) {
 
 	if (ec) {
-		LOG(error) << "send [" << to_string(peer) << "]: " << ec.message();
-		if (ec == asio::error::eof) {
+		if (ec == asio::error::eof || ec == asio::error::connection_reset) {
+			LOG(debug) << "send: Connection closed: peer="
+			           << utils::to_string(peer->remote_endpoint());
 			// Stop UDP receiver if there is no TCP peer
 			peer->udp().cancel();
 			return;
 		}
+		LOG(error) << "send [" << to_string(peer) << "]: " << ec.message();
 		// Try to recover from error
 		do_send_init(peer);
 		return;
@@ -135,9 +144,9 @@ void tcp2udp::do_recv_handler(tcp::peer::ptr peer, const boost::system::error_co
                               utils::ip::udp::buffer::ptr buffer, size_t length) {
 
 	if (ec) {
-		LOG(error) << "recv [" << to_string(peer) << "]: " << ec.message();
 		if (ec == asio::error::operation_aborted)
 			return;
+		LOG(error) << "recv [" << to_string(peer) << "]: " << ec.message();
 		// Try to recover from error
 		do_recv(peer);
 		return;
