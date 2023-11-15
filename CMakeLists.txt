@@ -14,7 +14,7 @@ project(
 	DESCRIPTION "WireGuard TCP tunneling"
 	LANGUAGES CXX)
 
-option(ENABLE_NGROK "Enable ngrok support" OFF)
+option(ENABLE_NGROK "Enable NGROK support" OFF)
 
 find_package(Boost 1.40.0 REQUIRED COMPONENTS log program_options)
 

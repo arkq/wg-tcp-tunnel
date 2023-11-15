@@ -41,11 +41,11 @@ struct endpoint {
 	etype type;
 
 	asio::ip::address address() const;
+	std::string uri() const;
 
 	friend std::ostream & operator<<(std::ostream & os, const endpoint & ep) {
-		os << ep.id << ": created_at=" << ep.created_at << " updated_at=" << ep.updated_at
-		   << " type=" << type_to_string(ep.type) << " uri=" << protocol_to_string(ep.proto)
-		   << "://" << ep.host << ":" << ep.port;
+		os << ep.id << ": created-at=" << ep.created_at << " updated-at=" << ep.updated_at
+		   << " type=" << type_to_string(ep.type) << " uri=" << ep.uri();
 		return os;
 	}
 };

@@ -8,8 +8,10 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <regex>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include <boost/asio.hpp>
 #include <boost/log/core.hpp>
@@ -81,7 +83,7 @@ private:
 int main(int argc, char * argv[]) {
 
 	asio::ip::tcp::endpoint ep_src_tcp;
-	asio::ip::udp::endpoint ep_dst_udp;
+	asio::ip::udp::endpoint ep_dst_udp(asio::ip::make_address("127.0.0.1"), 51820);
 	asio::ip::udp::endpoint ep_src_udp;
 	asio::ip::tcp::endpoint ep_dst_tcp;
 	std::size_t verbose;
@@ -91,19 +93,24 @@ int main(int argc, char * argv[]) {
 	o_builder("help,h", "print this help message and exit");
 	o_builder("version,V", "print version and exit");
 	o_builder("src-tcp,T", po::value(&ep_src_tcp), "source TCP address and port");
-	o_builder("dst-udp,u", po::value(&ep_dst_udp), "destination UDP address and port");
+	o_builder("dst-udp,u", po::value(&ep_dst_udp),
+	          "destination UDP address and port, default: 127.0.0.1:51820");
 	o_builder("src-udp,U", po::value(&ep_src_udp), "source UDP address and port");
 	o_builder("dst-tcp,t", po::value(&ep_dst_tcp), "destination TCP address and port");
 	o_builder("verbose,v", new po::counter(&verbose), "increase verbosity level");
 
 #if ENABLE_NGROK
-	std::string ngrok_dst_tcp_endpoint;
 	// By default API key is read from the environment variable
 	std::string ngrok_api_key = "ENV:NGROK_API_KEY";
-	o_builder("ngrok-dst-tcp-endpoint", po::value(&ngrok_dst_tcp_endpoint),
-	          "ngrok endpoint for destination TCP");
 	o_builder("ngrok-api-key", po::value(&ngrok_api_key),
-	          "ngrok API key, default: 'ENV:NGROK_API_KEY'");
+	          "NGROK API key or 'ENV:VARIABLE' to read the key from the environment variable, "
+	          "default: 'ENV:NGROK_API_KEY'");
+	std::string ngrok_dst_tcp_endpoint;
+	o_builder("ngrok-dst-tcp-endpoint", po::value(&ngrok_dst_tcp_endpoint),
+	          "NGROK endpoint used to forward TCP traffic; the endpoint can be specified as "
+	          "'id=ID' or 'uri=REGEX', where ID is the endpoint identifier and REGEX is a "
+	          "regular expression matching the endpoint URI; the special value 'list' can be "
+	          "used to list all available endpoints");
 #endif
 
 	po::variables_map args;
@@ -158,16 +165,35 @@ int main(int argc, char * argv[]) {
 				for (const auto & ep : endpoints)
 					std::cout << ep << std::endl;
 				return EXIT_SUCCESS;
-			}
-
-			if (ngrok_dst_tcp_endpoint == "tcp") {
+			} else if (ngrok_dst_tcp_endpoint.substr(0, 3) == "id=") {
+				bool found = false;
+				auto id = ngrok_dst_tcp_endpoint.substr(3);
 				for (const auto & ep : endpoints) {
-					if (ep.proto == wg::ngrok::endpoint::protocol::tcp &&
-					    ep.type == wg::ngrok::endpoint::etype::ephemeral) {
+					if (ep.id == id) {
 						ep_dst_tcp = asio::ip::tcp::endpoint(ep.address(), ep.port);
+						found = true;
 						break;
 					}
 				}
+				if (!found)
+					std::cerr << PROJECT_NAME << ": Endpoint '" << id << "' not found"
+					          << std::endl;
+			} else if (ngrok_dst_tcp_endpoint.substr(0, 4) == "uri=") {
+				bool found = false;
+				auto pattern = ngrok_dst_tcp_endpoint.substr(4);
+				auto regex = std::regex(pattern, std::regex::icase);
+				for (const auto & ep : endpoints) {
+					if (std::regex_match(ep.uri(), regex)) {
+						ep_dst_tcp = asio::ip::tcp::endpoint(ep.address(), ep.port);
+						found = true;
+						break;
+					}
+				}
+				if (!found)
+					std::cerr << PROJECT_NAME << ": Endpoint matching '" << pattern
+					          << "' not found" << std::endl;
+			} else {
+				throw std::runtime_error("Invalid NGROK endpoint specification");
 			}
 
 		} catch (const std::exception & e) {

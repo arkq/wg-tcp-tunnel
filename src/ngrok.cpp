@@ -91,6 +91,10 @@ asio::ip::address endpoint::address() const {
 	return asio::ip::address();
 }
 
+std::string endpoint::uri() const {
+	return protocol_to_string(proto) + "://" + host + ":" + std::to_string(port);
+}
+
 std::vector<endpoint> client::endpoints() {
 
 	if (m_key.empty())
