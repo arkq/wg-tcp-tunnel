@@ -218,12 +218,19 @@ int main(int argc, char * argv[]) {
 	wg::tunnel::tcp2udp tcp2udp(ioc, ep_src_tcp, ep_dst_udp);
 	wg::tunnel::udp2tcp udp2tcp(ioc, ep_src_udp, ep_dst_tcp);
 
+restart:
+
 	if (is_server)
 		tcp2udp.init();
 	if (is_client)
 		udp2tcp.init();
 
-	ioc.run();
+	try {
+		ioc.run();
+	} catch (const std::exception & e) {
+		std::cerr << PROJECT_NAME << ": " << e.what() << std::endl;
+		goto restart;
+	}
 
 	return EXIT_SUCCESS;
 }
