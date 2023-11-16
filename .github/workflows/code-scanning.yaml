@@ -1,0 +1,49 @@
+name: Code Scanning
+
+on:
+  push:
+  pull_request:
+    branches: [ master ]
+
+env:
+  MAKEFLAGS: -j8
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+
+  code-ql:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Dependencies
+      run: >
+        sudo apt install -y
+        libboost-dev
+        libboost-log-dev
+        libboost-program-options-dev
+    - uses: actions/checkout@v4
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: cpp
+        queries: security-and-quality
+    - name: Configure Project
+      run: >
+        cmake -S ${{ github.workspace }} -B build
+        -DENABLE_NGROK=ON
+    - name: Build Project
+      run: cmake --build build
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+  markdown-lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run Markdown Linter
+      uses: nosborn/github-action-markdown-cli@v3
+      with:
+        files: ${{ github.workspace }}

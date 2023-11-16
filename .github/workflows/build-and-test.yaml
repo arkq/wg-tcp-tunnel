@@ -1,0 +1,37 @@
+name: Build and Test
+
+on:
+  push:
+  pull_request:
+    branches: [ master ]
+
+env:
+  MAKEFLAGS: -j8
+
+jobs:
+
+  check:
+    strategy:
+      matrix:
+        build-type: [ Release ]
+        features:
+        - -DENABLE_NGROK=ON
+        - -DENABLE_NGROK=OFF
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Dependencies
+      run: >
+        sudo apt install -y
+        libboost-dev
+        libboost-log-dev
+        libboost-program-options-dev
+    - uses: actions/checkout@v4
+    - name: Configure Project
+      env:
+        CXXFLAGS: -Wall -Wextra -Werror -Wshadow
+      run: >
+        cmake -S ${{ github.workspace }} -B build ${{ matrix.features }}
+        -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
+    - name: Build Project
+      run: cmake --build build --config ${{ matrix.build-type }}
