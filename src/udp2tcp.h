@@ -42,6 +42,7 @@ private:
 	void do_send();
 	void do_send_handler(const boost::system::error_code & ec, utils::ip::udp::buffer::ptr buffer,
 	                     size_t length);
+	void send(utils::ip::udp::buffer::ptr buffer, size_t length);
 
 	void do_recv_init();
 	void do_recv(size_t rlen, bool ctrl = false);
@@ -54,6 +55,9 @@ private:
 	asio::ip::udp::socket m_socket_udp_acc;
 	asio::ip::tcp::socket m_socket_tcp_dest;
 	unsigned int m_tcp_keep_alive_idle_time;
+	// Temporary buffer for keeping UDP packet received before TCP connection
+	utils::ip::udp::buffer::ptr m_send_tmp_buffer;
+	size_t m_send_tmp_buffer_length;
 };
 
 }; // namespace tunnel

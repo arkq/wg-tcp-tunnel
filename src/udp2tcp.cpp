@@ -28,7 +28,6 @@ using namespace std::placeholders;
 void udp2tcp::init() {
 	LOG(debug) << "init: " << utils::to_string(m_ep_udp_acc) << " >> "
 	           << utils::to_string(m_ep_tcp_dest);
-	do_connect();
 	do_send();
 }
 
@@ -53,6 +52,8 @@ void udp2tcp::do_connect_handler(const boost::system::error_code & ec) {
 	if (ec) {
 		LOG(error) << "connect [" << utils::to_string(m_ep_tcp_dest) << "]: " << ec.message();
 		m_socket_tcp_dest.close();
+		// Handle next UDP packet
+		do_send();
 		return;
 	}
 
@@ -66,6 +67,12 @@ void udp2tcp::do_connect_handler(const boost::system::error_code & ec) {
 		m_socket_tcp_dest.set_option(asio::socket_base::linger(true, 0));
 	}
 
+	// Send UDP packet which was waiting for TCP connection
+	send(m_send_tmp_buffer, m_send_tmp_buffer_length);
+	m_send_tmp_buffer.reset();
+
+	// Handle next UDP packet
+	do_send();
 	// Start handling TCP packets
 	do_recv_init();
 }
@@ -87,18 +94,25 @@ void udp2tcp::do_send_handler(const boost::system::error_code & ec,
 	}
 
 	if (!m_socket_tcp_dest.is_open()) {
+		m_send_tmp_buffer = buffer;
+		m_send_tmp_buffer_length = length;
 		do_connect();
-	} else {
-		LOG(trace) << "send [" << to_string(true) << "]: len=" << length;
-		// Send payload with attached UDP header
-		utils::ip::udp::header header(m_ep_udp_sender.port(), m_ep_udp_acc.port(), length);
-		std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
-			                                     asio::buffer(*buffer, length) };
-		m_socket_tcp_dest.send(iovec);
+		return;
 	}
+
+	send(buffer, length);
 
 	// Handle next UDP packet
 	do_send();
+}
+
+void udp2tcp::send(utils::ip::udp::buffer::ptr buffer, size_t length) {
+	LOG(trace) << "send [" << to_string(true) << "]: len=" << length;
+	// Send payload with attached UDP header
+	utils::ip::udp::header header(m_ep_udp_sender.port(), m_ep_udp_acc.port(), length);
+	std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
+		                                     asio::buffer(*buffer, length) };
+	m_socket_tcp_dest.send(iovec);
 }
 
 void udp2tcp::do_recv_init() {
