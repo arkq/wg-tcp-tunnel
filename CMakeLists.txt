@@ -14,6 +14,9 @@ project(
 	DESCRIPTION "WireGuard TCP tunneling"
 	LANGUAGES CXX)
 
+include(GNUInstallDirs)
+
+option(ENABLE_SYSTEMD "Enable systemd support" OFF)
 option(ENABLE_NGROK "Enable NGROK support" OFF)
 
 find_package(Boost 1.40.0 REQUIRED COMPONENTS log program_options)
@@ -34,4 +37,10 @@ if(ENABLE_NGROK)
 	target_link_libraries(wg-tcp-tunnel PRIVATE OpenSSL::SSL)
 endif()
 
-install(TARGETS wg-tcp-tunnel RUNTIME DESTINATION bin)
+if(ENABLE_SYSTEMD)
+	set(SYSTEMD_SYSTEM_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/systemd/system")
+	install(FILES ${CMAKE_SOURCE_DIR}/misc/systemd/wg-tcp-tunnel.service
+			DESTINATION ${SYSTEMD_SYSTEM_DIR})
+endif()
+
+install(TARGETS wg-tcp-tunnel DESTINATION ${CMAKE_INSTALL_BINDIR})
