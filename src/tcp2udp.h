@@ -26,12 +26,15 @@ using std::size_t;
 class tcp2udp {
 public:
 	tcp2udp(asio::io_context & ioc, const asio::ip::tcp::endpoint & ep_tcp_src,
-	        const asio::ip::udp::endpoint & ep_udp_dest, unsigned int tcp_keep_alive_idle_time)
+	        const asio::ip::udp::endpoint & ep_udp_dest)
 	    : m_io_context(ioc), m_ep_tcp_acc(ep_tcp_src), m_ep_udp_dest(ep_udp_dest),
-	      m_tcp_acceptor(ioc, ep_tcp_src), m_tcp_keep_alive_idle_time(tcp_keep_alive_idle_time) {}
+	      m_tcp_acceptor(ioc, ep_tcp_src) {}
 	~tcp2udp() = default;
 
 	void init();
+
+	void keep_alive_app(unsigned int idle_time) { m_app_keep_alive_idle_time = idle_time; }
+	void keep_alive_tcp(unsigned int idle_time) { m_tcp_keep_alive_idle_time = idle_time; }
 
 private:
 	union tcp {
@@ -81,7 +84,10 @@ private:
 	asio::ip::tcp::endpoint m_ep_tcp_acc;
 	asio::ip::udp::endpoint m_ep_udp_dest;
 	asio::ip::tcp::acceptor m_tcp_acceptor;
-	unsigned int m_tcp_keep_alive_idle_time;
+	// Application keep-alive idle time in seconds, 0 to disable
+	unsigned int m_app_keep_alive_idle_time = 0;
+	// TCP keep-alive idle time in seconds, 0 to disable
+	unsigned int m_tcp_keep_alive_idle_time = 0;
 };
 
 }; // namespace tunnel

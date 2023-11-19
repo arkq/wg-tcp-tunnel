@@ -60,8 +60,8 @@ void udp2tcp::do_connect_handler(const boost::system::error_code & ec) {
 	LOG(debug) << "connect [" << utils::to_string(m_ep_tcp_dest) << "]: Connected";
 
 	if (m_tcp_keep_alive_idle_time > 0) {
-		LOG(debug) << "keepalive [" << utils::to_string(m_socket_tcp_dest.remote_endpoint())
-		           << "]: " << m_tcp_keep_alive_idle_time;
+		LOG(debug) << "tcp-keepalive [" << utils::to_string(m_socket_tcp_dest.remote_endpoint())
+		           << "]: idle=" << m_tcp_keep_alive_idle_time;
 		utils::socket_set_keep_alive_idle(m_socket_tcp_dest, m_tcp_keep_alive_idle_time);
 		m_socket_tcp_dest.set_option(asio::socket_base::keep_alive(true));
 		m_socket_tcp_dest.set_option(asio::socket_base::linger(true, 0));
@@ -73,8 +73,49 @@ void udp2tcp::do_connect_handler(const boost::system::error_code & ec) {
 
 	// Handle next UDP packet
 	do_send();
+	// Start handling application-level keep-alive
+	do_app_keep_alive_init();
 	// Start handling TCP packets
 	do_recv_init();
+}
+
+void udp2tcp::do_app_keep_alive_init() {
+	do_app_keep_alive(true);
+}
+
+void udp2tcp::do_app_keep_alive(bool init) {
+
+	// This call is a no-op if keep-alive is disabled
+	if (m_app_keep_alive_idle_time == 0)
+		return;
+
+	auto time = boost::posix_time::seconds(m_app_keep_alive_idle_time);
+	// Set or update timer and check whether the previous handler was cancelled
+	if (m_app_keep_alive_timer.expires_from_now(time) == 0 && !init)
+		return;
+
+	LOG(trace) << "app-keepalive [" << to_string() << "]: idle=" << m_app_keep_alive_idle_time;
+	auto handler = std::bind(&udp2tcp::do_app_keep_alive_handler, this, _1);
+	m_app_keep_alive_timer.async_wait(handler);
+}
+
+void udp2tcp::do_app_keep_alive_handler(const boost::system::error_code & ec) {
+
+	if (ec) {
+		if (ec == asio::error::operation_aborted)
+			return;
+		LOG(error) << "app-keepalive [" << to_string() << "]: " << ec.message();
+		return;
+	}
+
+	LOG(debug) << "app-keepalive [" << to_string() << "]: Sending keep-alive packet";
+
+	// Send a control packet
+	utils::ip::udp::header header(m_ep_udp_sender.port(), m_ep_udp_acc.port(), 0);
+	m_socket_tcp_dest.send(asio::buffer(&header, sizeof(header)));
+
+	// Initialize next keep-alive timer
+	do_app_keep_alive_init();
 }
 
 void udp2tcp::do_send() {
@@ -101,6 +142,7 @@ void udp2tcp::do_send_handler(const boost::system::error_code & ec,
 	}
 
 	send(buffer, length);
+	do_app_keep_alive();
 
 	// Handle next UDP packet
 	do_send();
@@ -133,6 +175,7 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec,
 			return;
 		if (ec == asio::error::eof || ec == asio::error::connection_reset) {
 			LOG(debug) << "recv: Connection closed: peer=" << utils::to_string(m_ep_tcp_dest);
+			m_app_keep_alive_timer.cancel();
 			m_socket_tcp_dest.close();
 			return;
 		}
@@ -152,13 +195,21 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec,
 			do_recv_init();
 			return;
 		}
+		// Check if the packet is a control packet
+		if (header->m_length == 0) {
+			// Handle next TCP packet
+			do_recv_init();
+			return;
+		}
 		// Handle UDP packet payload
 		do_recv(header->m_length);
 		return;
 	}
 
-	if (m_ep_udp_sender.port() != 0)
+	if (m_ep_udp_sender.port() != 0) {
 		m_socket_udp_acc.send_to(buffer->data(), m_ep_udp_sender);
+		do_app_keep_alive();
+	}
 
 	// Handle next TCP packet
 	do_recv_init();

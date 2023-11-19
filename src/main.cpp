@@ -108,6 +108,7 @@ int main(int argc, char * argv[]) {
 #if ENABLE_NGROK
 	std::string ngrok_api_key;
 	std::string ngrok_dst_tcp_endpoint;
+	unsigned int ngrok_keep_alive = 0;
 	o_builder("ngrok-api-key", po::value(&ngrok_api_key)->default_value("ENV:NGROK_API_KEY"),
 	          "NGROK API key or 'ENV:VARIABLE' to read the key from the environment variable");
 	o_builder("ngrok-dst-tcp-endpoint", po::value(&ngrok_dst_tcp_endpoint),
@@ -115,6 +116,8 @@ int main(int argc, char * argv[]) {
 	          "'id=ID' or 'uri=REGEX', where ID is the endpoint identifier and REGEX is a "
 	          "regular expression matching the endpoint URI; the special value 'list' can be "
 	          "used to list all available endpoints");
+	o_builder("ngrok-keep-alive", po::value(&ngrok_keep_alive)->implicit_value(270),
+	          "enable keep-alive for NGROK connection");
 #endif
 
 	po::variables_map args;
@@ -219,8 +222,15 @@ int main(int argc, char * argv[]) {
 	}
 
 	asio::io_context ioc;
-	wg::tunnel::tcp2udp tcp2udp(ioc, ep_src_tcp, ep_dst_udp, tcp_keep_alive);
-	wg::tunnel::udp2tcp udp2tcp(ioc, ep_src_udp, ep_dst_tcp, tcp_keep_alive);
+	wg::tunnel::tcp2udp tcp2udp(ioc, ep_src_tcp, ep_dst_udp);
+	wg::tunnel::udp2tcp udp2tcp(ioc, ep_src_udp, ep_dst_tcp);
+
+#if ENABLE_NGROK
+	tcp2udp.keep_alive_app(ngrok_keep_alive);
+	udp2tcp.keep_alive_app(ngrok_keep_alive);
+#endif
+	tcp2udp.keep_alive_tcp(tcp_keep_alive);
+	udp2tcp.keep_alive_tcp(tcp_keep_alive);
 
 restart:
 

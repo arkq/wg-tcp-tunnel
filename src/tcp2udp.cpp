@@ -50,8 +50,8 @@ void tcp2udp::do_accept() {
 }
 
 void tcp2udp::tcp::peer::keepalive(unsigned int idle_time) {
-	LOG(debug) << "keepalive [" << utils::to_string(m_socket.remote_endpoint())
-	           << "]: " << idle_time;
+	LOG(debug) << "tcp-keepalive [" << utils::to_string(m_socket.remote_endpoint())
+	           << "]: idle=" << idle_time;
 	utils::socket_set_keep_alive_idle(m_socket, idle_time);
 	m_socket.set_option(asio::socket_base::keep_alive(true));
 	m_socket.set_option(asio::socket_base::linger(true, 0));
@@ -113,6 +113,12 @@ void tcp2udp::do_send_handler(tcp::peer::ptr peer, const boost::system::error_co
 		auto header = reinterpret_cast<const utils::ip::udp::header *>(buffer->data().data());
 		if (!header->valid()) {
 			LOG(error) << "send [" << to_string(peer) << "]: Invalid UDP header";
+			// Handle next TCP packet
+			do_send_init(peer);
+			return;
+		}
+		// Check if the packet is a control packet
+		if (header->m_length == 0) {
 			// Handle next TCP packet
 			do_send_init(peer);
 			return;
