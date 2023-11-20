@@ -17,6 +17,7 @@
 #include <boost/log/core.hpp>
 #include <boost/log/expressions.hpp>
 #include <boost/log/trivial.hpp>
+#include <boost/log/utility/setup/console.hpp>
 #include <boost/program_options.hpp>
 
 #include "ngrok.h"
@@ -145,6 +146,12 @@ int main(int argc, char * argv[]) {
 		std::cout << PROJECT_NAME << " " << PROJECT_VERSION << std::endl;
 		return EXIT_SUCCESS;
 	}
+
+#if ENABLE_SYSTEMD
+	if (std::getenv("INVOCATION_ID") != nullptr)
+		// If launched by systemd we do not need timestamp in our log message
+		logging::add_console_log(std::clog, logging::keywords::format = "[%Severity%] %Message%");
+#endif
 
 	switch (verbose) {
 	case 0:
