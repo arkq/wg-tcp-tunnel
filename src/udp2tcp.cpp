@@ -12,7 +12,6 @@
 #include <functional>
 #include <memory>
 
-#include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include <boost/log/trivial.hpp>
 
@@ -151,7 +150,8 @@ void udp2tcp::do_send_handler(const boost::system::error_code & ec,
 void udp2tcp::send(utils::ip::udp::buffer::ptr buffer, size_t length) {
 	LOG(trace) << "send [" << to_string(true) << "]: len=" << length;
 	// Send payload with attached UDP header
-	utils::ip::udp::header header(m_ep_udp_sender.port(), m_ep_udp_acc.port(), length);
+	utils::ip::udp::header header(m_ep_udp_sender.port(), m_ep_udp_acc.port(),
+	                              static_cast<uint16_t>(length));
 	std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
 		                                     asio::buffer(*buffer, length) };
 	m_socket_tcp_dest.send(iovec);

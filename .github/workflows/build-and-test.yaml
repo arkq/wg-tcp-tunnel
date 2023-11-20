@@ -13,25 +13,47 @@ jobs:
   check:
     strategy:
       matrix:
+        os: [ubuntu-latest, windows-latest]
         build-type: [ Release ]
         features:
-        - -DENABLE_NGROK=ON
+        - -DENABLE_NGROK=ON -DENABLE_SYSTEMD=ON
         - -DENABLE_NGROK=OFF
       fail-fast: false
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     steps:
-    - name: Install Dependencies
+    - name: Install Dependencies (Ubuntu)
+      if: runner.os == 'Linux'
       run: >
-        sudo apt install -y
+        sudo apt install --no-install-recommends --yes
         libboost-dev
         libboost-log-dev
         libboost-program-options-dev
+    - name: Install Dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: >
+        vcpkg install
+        boost-asio
+        boost-beast
+        boost-crc
+        boost-date-time
+        boost-log
+        boost-program-options
+        boost-property-tree
     - uses: actions/checkout@v4
-    - name: Configure Project
+    - name: Configure Project (Ubuntu)
+      if: runner.os == 'Linux'
       env:
         CXXFLAGS: -Wall -Wextra -Werror -Wshadow
       run: >
-        cmake -S ${{ github.workspace }} -B build ${{ matrix.features }}
+        cmake -S ${{ github.workspace }} -B build
         -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
+        ${{ matrix.features }}
+    - name: Configure Project (Windows)
+      if: runner.os == 'Windows'
+      run: >
+        cmake -S ${{ github.workspace }} -B build
+        -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+        -DCMAKE_BUILD_TYPE=${{ matrix.build-type }}
+        ${{ matrix.features }}
     - name: Build Project
       run: cmake --build build --config ${{ matrix.build-type }}

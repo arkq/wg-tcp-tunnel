@@ -13,7 +13,6 @@
 #include <functional>
 #include <memory>
 
-#include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include <boost/log/trivial.hpp>
 
@@ -161,7 +160,8 @@ void tcp2udp::do_recv_handler(tcp::peer::ptr peer, const boost::system::error_co
 	LOG(trace) << "recv [" << to_string(peer, true) << "]: len=" << length;
 	// Send payload with attached UDP header
 	utils::ip::udp::header header(peer->udp().remote_endpoint().port(),
-	                              peer->udp().local_endpoint().port(), length);
+	                              peer->udp().local_endpoint().port(),
+	                              static_cast<uint16_t>(length));
 	std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
 		                                     asio::buffer(*buffer, length) };
 	peer->send(iovec);

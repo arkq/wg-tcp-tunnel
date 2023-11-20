@@ -168,8 +168,10 @@ int main(int argc, char * argv[]) {
 #if ENABLE_NGROK
 	if (!ngrok_dst_tcp_endpoint.empty()) {
 
-		if (ngrok_api_key.substr(0, 4) == "ENV:")
-			ngrok_api_key = std::getenv(ngrok_api_key.substr(4).c_str()) ?: "";
+		if (ngrok_api_key.substr(0, 4) == "ENV:") {
+			const auto key = std::getenv(ngrok_api_key.substr(4).c_str());
+			ngrok_api_key = key != nullptr ? key : "";
+		}
 
 		try {
 			wg::ngrok::client ngrok(ngrok_api_key);
