@@ -27,8 +27,9 @@ using namespace std::placeholders;
 #define LOG(lvl) BOOST_LOG_TRIVIAL(lvl) << "udp2tcp::"
 
 void udp2tcp::init() {
+	m_ep_tcp_dest_cache = asio::ip::tcp::endpoint();
 	LOG(debug) << "init: " << utils::to_string(m_ep_udp_acc) << " >> "
-	           << utils::to_string(m_ep_tcp_dest_getter());
+	           << utils::to_string(m_ep_tcp_dest_cache);
 	do_send();
 }
 
@@ -47,8 +48,10 @@ void udp2tcp::do_connect() {
 	try {
 		auto handler = std::bind(&udp2tcp::do_connect_handler, this, _1);
 		m_socket_tcp_dest.async_connect(m_ep_tcp_dest_cache = m_ep_tcp_dest_getter(), handler);
-	} catch (const boost::system::system_error & e) {
+	} catch (const std::exception & e) {
 		LOG(error) << "connect: Get destination TCP endpoint: " << e.what();
+		// Handle next UDP packet
+		do_send();
 	}
 }
 
@@ -183,6 +186,7 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec,
 		if (ec == asio::error::eof || ec == asio::error::connection_reset) {
 			LOG(debug) << "recv: Connection closed: peer="
 			           << utils::to_string(m_ep_tcp_dest_cache);
+			m_ep_tcp_dest_cache = asio::ip::tcp::endpoint();
 			m_app_keep_alive_timer.cancel();
 			m_socket_tcp_dest.close();
 			return;
