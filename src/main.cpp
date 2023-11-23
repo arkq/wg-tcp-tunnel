@@ -232,7 +232,7 @@ int main(int argc, char * argv[]) {
 
 	asio::io_context ioc;
 	wg::tunnel::tcp2udp tcp2udp(ioc, ep_src_tcp, ep_dst_udp);
-	wg::tunnel::udp2tcp udp2tcp(ioc, ep_src_udp, ep_dst_tcp);
+	wg::tunnel::udp2tcp udp2tcp(ioc, ep_src_udp, [&] { return ep_dst_tcp; });
 
 #if ENABLE_NGROK
 	tcp2udp.keep_alive_app(ngrok_keep_alive);

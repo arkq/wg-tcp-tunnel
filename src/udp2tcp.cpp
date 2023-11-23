@@ -11,6 +11,8 @@
 #include <array>
 #include <functional>
 #include <memory>
+#include <stdexcept>
+#include <string>
 
 #include <boost/asio.hpp>
 #include <boost/log/trivial.hpp>
@@ -26,7 +28,7 @@ using namespace std::placeholders;
 
 void udp2tcp::init() {
 	LOG(debug) << "init: " << utils::to_string(m_ep_udp_acc) << " >> "
-	           << utils::to_string(m_ep_tcp_dest);
+	           << utils::to_string(m_ep_tcp_dest_getter());
 	do_send();
 }
 
@@ -42,21 +44,26 @@ std::string udp2tcp::to_string(bool verbose) {
 }
 
 void udp2tcp::do_connect() {
-	auto handler = std::bind(&udp2tcp::do_connect_handler, this, _1);
-	m_socket_tcp_dest.async_connect(m_ep_tcp_dest, handler);
+	try {
+		auto handler = std::bind(&udp2tcp::do_connect_handler, this, _1);
+		m_socket_tcp_dest.async_connect(m_ep_tcp_dest_cache = m_ep_tcp_dest_getter(), handler);
+	} catch (const boost::system::system_error & e) {
+		LOG(error) << "connect: Get destination TCP endpoint: " << e.what();
+	}
 }
 
 void udp2tcp::do_connect_handler(const boost::system::error_code & ec) {
 
 	if (ec) {
-		LOG(error) << "connect [" << utils::to_string(m_ep_tcp_dest) << "]: " << ec.message();
+		LOG(error) << "connect [" << utils::to_string(m_ep_tcp_dest_cache)
+		           << "]: " << ec.message();
 		m_socket_tcp_dest.close();
 		// Handle next UDP packet
 		do_send();
 		return;
 	}
 
-	LOG(debug) << "connect [" << utils::to_string(m_ep_tcp_dest) << "]: Connected";
+	LOG(debug) << "connect [" << utils::to_string(m_ep_tcp_dest_cache) << "]: Connected";
 
 	if (m_tcp_keep_alive_idle_time > 0) {
 		LOG(debug) << "tcp-keepalive [" << utils::to_string(m_socket_tcp_dest.remote_endpoint())
@@ -174,7 +181,8 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec,
 		if (ec == asio::error::operation_aborted)
 			return;
 		if (ec == asio::error::eof || ec == asio::error::connection_reset) {
-			LOG(debug) << "recv: Connection closed: peer=" << utils::to_string(m_ep_tcp_dest);
+			LOG(debug) << "recv: Connection closed: peer="
+			           << utils::to_string(m_ep_tcp_dest_cache);
 			m_app_keep_alive_timer.cancel();
 			m_socket_tcp_dest.close();
 			return;

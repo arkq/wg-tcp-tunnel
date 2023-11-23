@@ -9,6 +9,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -24,10 +25,10 @@ using std::size_t;
 
 class udp2tcp {
 public:
-	udp2tcp(asio::io_context & ioc, const asio::ip::udp::endpoint & ep_udp_acc,
-	        const asio::ip::tcp::endpoint & ep_tcp_dest)
-	    : m_ep_udp_acc(ep_udp_acc), m_ep_tcp_dest(ep_tcp_dest),
-	      m_socket_udp_acc(ioc, m_ep_udp_acc), m_socket_tcp_dest(ioc),
+	udp2tcp(asio::io_context & ioc, asio::ip::udp::endpoint ep_udp_acc,
+	        std::function<asio::ip::tcp::endpoint()> ep_tcp_dest_getter)
+	    : m_ep_udp_acc(std::move(ep_udp_acc)), m_socket_udp_acc(ioc, m_ep_udp_acc),
+	      m_socket_tcp_dest(ioc), m_ep_tcp_dest_getter(std::move(ep_tcp_dest_getter)),
 	      m_app_keep_alive_timer(ioc) {}
 	~udp2tcp() = default;
 
@@ -58,9 +59,11 @@ private:
 
 	asio::ip::udp::endpoint m_ep_udp_acc;
 	asio::ip::udp::endpoint m_ep_udp_sender;
-	asio::ip::tcp::endpoint m_ep_tcp_dest;
 	asio::ip::udp::socket m_socket_udp_acc;
 	asio::ip::tcp::socket m_socket_tcp_dest;
+	// Getter for obtaining TCP destination endpoint
+	std::function<asio::ip::tcp::endpoint()> m_ep_tcp_dest_getter;
+	asio::ip::tcp::endpoint m_ep_tcp_dest_cache;
 	// Application keep-alive idle time in seconds, 0 to disable
 	unsigned int m_app_keep_alive_idle_time = 0;
 	asio::deadline_timer m_app_keep_alive_timer;

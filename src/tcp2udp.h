@@ -25,10 +25,10 @@ using std::size_t;
 
 class tcp2udp {
 public:
-	tcp2udp(asio::io_context & ioc, const asio::ip::tcp::endpoint & ep_tcp_src,
-	        const asio::ip::udp::endpoint & ep_udp_dest)
-	    : m_io_context(ioc), m_ep_tcp_acc(ep_tcp_src), m_ep_udp_dest(ep_udp_dest),
-	      m_tcp_acceptor(ioc, ep_tcp_src) {}
+	tcp2udp(asio::io_context & ioc, asio::ip::tcp::endpoint ep_tcp_acc,
+	        asio::ip::udp::endpoint ep_udp_dest)
+	    : m_io_context(ioc), m_ep_tcp_acc(std::move(ep_tcp_acc)),
+	      m_ep_udp_dest(std::move(ep_udp_dest)), m_tcp_acceptor(ioc, m_ep_tcp_acc) {}
 	~tcp2udp() = default;
 
 	void init();
@@ -38,7 +38,7 @@ public:
 
 private:
 	union tcp {
-		class peer : public std::enable_shared_from_this<peer> {
+		class peer {
 		public:
 			using ptr = std::shared_ptr<peer>;
 
