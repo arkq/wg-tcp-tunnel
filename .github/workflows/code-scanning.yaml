@@ -15,6 +15,15 @@ permissions:
 
 jobs:
 
+  cmake-lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run CMake Linter
+      uses: puneetmatharu/cmake-format-lint-action@main
+      with:
+        args: --check
+
   code-ql:
     runs-on: ubuntu-latest
     steps:
@@ -38,6 +47,18 @@ jobs:
       run: cmake --build build
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v2
+
+  cpp-linter:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run C++ Linter (clang-format & clang-tidy)
+      uses: cpp-linter/cpp-linter-action@v2
+      id: cpp-linter
+      with:
+        style: file
+    - if: steps.cpp-linter.outputs.checks-failed > 0
+      run: exit 1
 
   markdown-lint:
     runs-on: ubuntu-latest
