@@ -8,7 +8,6 @@
 
 #include <cstdlib>
 #include <iostream>
-#include <regex>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -89,7 +88,6 @@ int main(int argc, char * argv[]) {
 	asio::ip::udp::endpoint ep_src_udp;
 	asio::ip::tcp::endpoint ep_dst_tcp;
 	unsigned int tcp_keep_alive = 0;
-	bool dynamic_dst_tcp = false;
 	size_t verbose;
 
 	po::options_description options("Options");
@@ -166,6 +164,10 @@ int main(int argc, char * argv[]) {
 		break;
 	}
 
+	wg::tunnel::udp2tcp_dest_provider_simple udp2tcp_dest_provider_simple(ep_dst_tcp);
+	wg::tunnel::udp2tcp_dest_provider * udp2tcp_dest_provider = &udp2tcp_dest_provider_simple;
+	bool dynamic_dst_tcp = false;
+
 #if ENABLE_NGROK
 
 	if (ngrok_api_key.substr(0, 4) == "ENV:") {
@@ -175,8 +177,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	wg::ngrok::client ngrok(ngrok_api_key);
-	std::string ngrok_dst_tcp_endpoint_id;
-	std::string ngrok_dst_tcp_endpoint_uri;
+	wg::tunnel::udp2tcp_dest_provider_ngrok udp2tcp_dest_provider_ngrok(ngrok);
 
 	if (!ngrok_dst_tcp_endpoint.empty()) {
 		try {
@@ -185,10 +186,12 @@ int main(int argc, char * argv[]) {
 					std::cout << ep << std::endl;
 				return EXIT_SUCCESS;
 			} else if (ngrok_dst_tcp_endpoint.substr(0, 3) == "id=") {
-				ngrok_dst_tcp_endpoint_id = ngrok_dst_tcp_endpoint.substr(3);
+				udp2tcp_dest_provider_ngrok.filter_id(ngrok_dst_tcp_endpoint.substr(3));
+				udp2tcp_dest_provider = &udp2tcp_dest_provider_ngrok;
 				dynamic_dst_tcp = true;
 			} else if (ngrok_dst_tcp_endpoint.substr(0, 4) == "uri=") {
-				ngrok_dst_tcp_endpoint_uri = ngrok_dst_tcp_endpoint.substr(4);
+				udp2tcp_dest_provider_ngrok.filter_uri(ngrok_dst_tcp_endpoint.substr(4));
+				udp2tcp_dest_provider = &udp2tcp_dest_provider_ngrok;
 				dynamic_dst_tcp = true;
 			} else {
 				throw std::runtime_error("Invalid NGROK endpoint specification");
@@ -214,24 +217,7 @@ int main(int argc, char * argv[]) {
 
 	asio::io_context ioc;
 	wg::tunnel::tcp2udp tcp2udp(ioc, ep_src_tcp, ep_dst_udp);
-	wg::tunnel::udp2tcp udp2tcp(ioc, ep_src_udp, [&] {
-#if ENABLE_NGROK
-		if (!ngrok_dst_tcp_endpoint_id.empty()) {
-			for (const auto & ep : ngrok.endpoints())
-				if (ep.id == ngrok_dst_tcp_endpoint_id)
-					return asio::ip::tcp::endpoint(ep.address(), ep.port);
-			throw std::runtime_error("Endpoint '" + ngrok_dst_tcp_endpoint_id + "' not found");
-		} else if (!ngrok_dst_tcp_endpoint_uri.empty()) {
-			auto regex = std::regex(ngrok_dst_tcp_endpoint_uri, std::regex::icase);
-			for (const auto & ep : ngrok.endpoints())
-				if (std::regex_match(ep.uri(), regex))
-					return asio::ip::tcp::endpoint(ep.address(), ep.port);
-			throw std::runtime_error("Endpoint matching '" + ngrok_dst_tcp_endpoint_uri +
-			                         "' not found");
-		} else
-#endif
-			return ep_dst_tcp;
-	});
+	wg::tunnel::udp2tcp udp2tcp(ioc, ep_src_udp, *udp2tcp_dest_provider);
 
 #if ENABLE_NGROK
 	tcp2udp.keep_alive_app(ngrok_keep_alive);

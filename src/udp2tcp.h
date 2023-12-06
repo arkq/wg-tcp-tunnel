@@ -9,12 +9,12 @@
 #pragma once
 
 #include <cstddef>
-#include <functional>
 #include <memory>
 #include <string>
 
 #include <boost/asio.hpp>
 
+#include "ngrok.h"
 #include "utils.hpp"
 
 namespace wg {
@@ -23,12 +23,17 @@ namespace tunnel {
 namespace asio = boost::asio;
 using std::size_t;
 
+class udp2tcp_dest_provider {
+public:
+	virtual asio::ip::tcp::endpoint tcp_dest_ep() = 0;
+};
+
 class udp2tcp {
 public:
 	udp2tcp(asio::io_context & ioc, asio::ip::udp::endpoint ep_udp_acc,
-	        std::function<asio::ip::tcp::endpoint()> ep_tcp_dest_getter)
+	        udp2tcp_dest_provider & ep_tcp_dest_provider)
 	    : m_ep_udp_acc(std::move(ep_udp_acc)), m_socket_udp_acc(ioc, m_ep_udp_acc),
-	      m_socket_tcp_dest(ioc), m_ep_tcp_dest_getter(std::move(ep_tcp_dest_getter)),
+	      m_socket_tcp_dest(ioc), m_ep_tcp_dest_provider(ep_tcp_dest_provider),
 	      m_app_keep_alive_timer(ioc) {}
 	~udp2tcp() = default;
 
@@ -61,8 +66,8 @@ private:
 	asio::ip::udp::endpoint m_ep_udp_sender;
 	asio::ip::udp::socket m_socket_udp_acc;
 	asio::ip::tcp::socket m_socket_tcp_dest;
-	// Getter for obtaining TCP destination endpoint
-	std::function<asio::ip::tcp::endpoint()> m_ep_tcp_dest_getter;
+	// Provider for obtaining TCP destination endpoint
+	udp2tcp_dest_provider & m_ep_tcp_dest_provider;
 	asio::ip::tcp::endpoint m_ep_tcp_dest_cache;
 	// Application keep-alive idle time in seconds, 0 to disable
 	unsigned int m_app_keep_alive_idle_time = 0;
@@ -73,6 +78,31 @@ private:
 	utils::ip::udp::buffer::ptr m_send_tmp_buffer;
 	size_t m_send_tmp_buffer_length;
 };
+
+class udp2tcp_dest_provider_simple : virtual public udp2tcp_dest_provider {
+public:
+	udp2tcp_dest_provider_simple(asio::ip::tcp::endpoint ep) : m_ep(std::move(ep)) {}
+	asio::ip::tcp::endpoint tcp_dest_ep() override { return m_ep; }
+
+private:
+	asio::ip::tcp::endpoint m_ep;
+};
+
+#if ENABLE_NGROK
+class udp2tcp_dest_provider_ngrok : virtual public udp2tcp_dest_provider {
+public:
+	udp2tcp_dest_provider_ngrok(wg::ngrok::client & client) : m_client(client) {}
+	asio::ip::tcp::endpoint tcp_dest_ep() override;
+
+	void filter_id(const std::string_view id) { m_endpoint_filter_id = id; }
+	void filter_uri(const std::string_view uri) { m_endpoint_filter_uri = uri; }
+
+private:
+	wg::ngrok::client & m_client;
+	std::string m_endpoint_filter_id;
+	std::string m_endpoint_filter_uri;
+};
+#endif
 
 }; // namespace tunnel
 }; // namespace wg

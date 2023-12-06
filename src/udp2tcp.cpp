@@ -11,6 +11,7 @@
 #include <array>
 #include <functional>
 #include <memory>
+#include <regex>
 #include <stdexcept>
 #include <string>
 
@@ -47,7 +48,8 @@ std::string udp2tcp::to_string(bool verbose) {
 void udp2tcp::do_connect() {
 	try {
 		auto handler = std::bind(&udp2tcp::do_connect_handler, this, _1);
-		m_socket_tcp_dest.async_connect(m_ep_tcp_dest_cache = m_ep_tcp_dest_getter(), handler);
+		m_socket_tcp_dest.async_connect(m_ep_tcp_dest_cache = m_ep_tcp_dest_provider.tcp_dest_ep(),
+		                                handler);
 	} catch (const std::exception & e) {
 		LOG(error) << "connect: Get destination TCP endpoint: " << e.what();
 		// Handle next UDP packet
@@ -226,6 +228,27 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec,
 	// Handle next TCP packet
 	do_recv_init();
 }
+
+#if ENABLE_NGROK
+asio::ip::tcp::endpoint udp2tcp_dest_provider_ngrok::tcp_dest_ep() {
+	if (!m_endpoint_filter_id.empty()) {
+		LOG(debug) << "tcp-provider-ngrok: id=" << m_endpoint_filter_id;
+		for (const auto & ep : m_client.endpoints())
+			if (ep.id == m_endpoint_filter_id)
+				return asio::ip::tcp::endpoint(ep.address(), ep.port);
+		throw std::runtime_error("Endpoint '" + m_endpoint_filter_id + "' not found");
+	}
+	if (!m_endpoint_filter_uri.empty()) {
+		LOG(debug) << "tcp-provider-ngrok: uri=" << m_endpoint_filter_uri;
+		auto regex = std::regex(m_endpoint_filter_uri, std::regex::icase);
+		for (const auto & ep : m_client.endpoints())
+			if (std::regex_match(ep.uri(), regex))
+				return asio::ip::tcp::endpoint(ep.address(), ep.port);
+		throw std::runtime_error("Endpoint matching '" + m_endpoint_filter_uri + "' not found");
+	}
+	throw std::runtime_error("Endpoint filter not set");
+}
+#endif
 
 }; // namespace tunnel
 }; // namespace wg
