@@ -31,34 +31,37 @@ public:
 	      m_ep_udp_dest(std::move(ep_udp_dest)), m_tcp_acceptor(ioc, m_ep_tcp_acc) {}
 	~tcp2udp() = default;
 
-	void init();
+	void run();
 
 	void keep_alive_app(unsigned int idle_time) { m_app_keep_alive_idle_time = idle_time; }
 	void keep_alive_tcp(unsigned int idle_time) { m_tcp_keep_alive_idle_time = idle_time; }
 
 private:
 	union tcp {
-		class peer {
+		class session : public std::enable_shared_from_this<session> {
 		public:
-			using ptr = std::shared_ptr<peer>;
-
-			peer(tcp2udp & tcp2udp)
-			    : m_socket(tcp2udp.m_io_context), m_socket_udp_dest(tcp2udp.m_io_context) {
+			session(tcp2udp & tcp2udp, asio::ip::tcp::socket socket)
+			    : m_socket(std::move(socket)), m_socket_udp_dest(tcp2udp.m_io_context) {
 				m_socket_udp_dest.connect(tcp2udp.m_ep_udp_dest);
 			}
+
+			void run();
+
+		private:
+			void do_send_init();
+			void do_send(size_t rlen, bool ctrl = false);
+			void do_send_handler(const boost::system::error_code & ec,
+			                     utils::ip::tcp::buffer::ptr buffer, size_t length, bool ctrl);
+
+			void do_recv();
+			void do_recv_handler(const boost::system::error_code & ec,
+			                     utils::ip::udp::buffer::ptr buffer, size_t length);
+
+			std::string to_string(bool verbose = false);
 
 			auto & tcp() { return m_socket; }
 			auto & udp() { return m_socket_udp_dest; }
 
-			bool init() { return std::exchange(m_initialized, true); }
-			void keepalive(unsigned int idle_time);
-			void connected();
-
-			template <typename... A> auto send(A... args) { return m_socket.send(args...); }
-			auto local_endpoint() const { return m_socket.local_endpoint(); }
-			auto remote_endpoint() const { return m_socket_ep_remote; }
-
-		private:
 			asio::ip::tcp::socket m_socket;
 			asio::ip::tcp::endpoint m_socket_ep_remote;
 			asio::ip::udp::socket m_socket_udp_dest;
@@ -66,19 +69,8 @@ private:
 		};
 	};
 
-	std::string to_string(tcp::peer::ptr peer, bool verbose = false);
-
 	void do_accept();
-	void do_accept_handler(tcp::peer::ptr peer, const boost::system::error_code & ec);
-
-	void do_send_init(tcp::peer::ptr peer);
-	void do_send(tcp::peer::ptr peer, size_t rlen, bool ctrl = false);
-	void do_send_handler(tcp::peer::ptr peer, const boost::system::error_code & ec,
-	                     utils::ip::tcp::buffer::ptr buffer, size_t length, bool ctrl);
-
-	void do_recv(tcp::peer::ptr peer);
-	void do_recv_handler(tcp::peer::ptr peer, const boost::system::error_code & ec,
-	                     utils::ip::udp::buffer::ptr buffer, size_t length);
+	void do_accept_handler(const boost::system::error_code & ec, asio::ip::tcp::socket peer);
 
 	asio::io_context & m_io_context;
 	asio::ip::tcp::endpoint m_ep_tcp_acc;

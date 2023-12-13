@@ -27,9 +27,9 @@ namespace asio = boost::asio;
 using namespace std::placeholders;
 #define LOG(lvl) BOOST_LOG_TRIVIAL(lvl) << "udp2tcp::"
 
-void udp2tcp::init() {
+void udp2tcp::run() {
 	m_ep_tcp_dest_cache = asio::ip::tcp::endpoint();
-	LOG(debug) << "init: " << utils::to_string(m_ep_udp_acc) << " >> "
+	LOG(debug) << "run: " << utils::to_string(m_ep_udp_acc) << " >> "
 	           << utils::to_string(m_ep_tcp_dest_cache);
 	do_send();
 }

@@ -229,9 +229,9 @@ int main(int argc, char * argv[]) {
 restart:
 
 	if (is_server)
-		tcp2udp.init();
+		tcp2udp.run();
 	if (is_client)
-		udp2tcp.init();
+		udp2tcp.run();
 
 	try {
 		ioc.run();

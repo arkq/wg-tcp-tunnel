@@ -37,7 +37,7 @@ public:
 	      m_app_keep_alive_timer(ioc) {}
 	~udp2tcp() = default;
 
-	void init();
+	void run();
 
 	void keep_alive_app(unsigned int idle_time) { m_app_keep_alive_idle_time = idle_time; }
 	void keep_alive_tcp(unsigned int idle_time) { m_tcp_keep_alive_idle_time = idle_time; }
