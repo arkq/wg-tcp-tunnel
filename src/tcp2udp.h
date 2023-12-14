@@ -38,12 +38,28 @@ public:
 
 private:
 	union tcp {
-		class session : public std::enable_shared_from_this<session> {
+		class session {
 		public:
 			session(tcp2udp & tcp2udp, asio::ip::tcp::socket socket)
-			    : m_socket(std::move(socket)), m_socket_udp_dest(tcp2udp.m_io_context) {
+			    : m_socket(std::move(socket)), m_socket_udp_dest(tcp2udp.m_io_context),
+			      m_socket_ep_remote(m_socket.remote_endpoint()) {
 				m_socket_udp_dest.connect(tcp2udp.m_ep_udp_dest);
 			}
+
+		protected:
+			std::string to_string(bool verbose = false);
+
+			asio::ip::tcp::socket m_socket;
+			asio::ip::udp::socket m_socket_udp_dest;
+			// Saved remote endpoint of the TCP socket, so we can get
+			// the address after the socket is disconnected
+			asio::ip::tcp::endpoint m_socket_ep_remote;
+		};
+
+		class session_raw : public session, public std::enable_shared_from_this<session_raw> {
+		public:
+			session_raw(tcp2udp & tcp2udp, asio::ip::tcp::socket socket)
+			    : session(tcp2udp, std::move(socket)) {}
 
 			void run();
 
@@ -57,14 +73,6 @@ private:
 			void do_recv_handler(const boost::system::error_code & ec,
 			                     utils::ip::udp::buffer::ptr buffer, size_t length);
 
-			std::string to_string(bool verbose = false);
-
-			auto & tcp() { return m_socket; }
-			auto & udp() { return m_socket_udp_dest; }
-
-			asio::ip::tcp::socket m_socket;
-			asio::ip::tcp::endpoint m_socket_ep_remote;
-			asio::ip::udp::socket m_socket_udp_dest;
 			bool m_initialized = false;
 		};
 	};
