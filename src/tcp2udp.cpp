@@ -69,15 +69,14 @@ void tcp2udp::tcp::session_raw::do_send_init() {
 }
 
 void tcp2udp::tcp::session_raw::do_send(size_t rlen, bool ctrl) {
-	auto buffer = std::make_shared<asio::streambuf>();
-	auto handler = std::bind(&tcp2udp::tcp::session_raw::do_send_handler, shared_from_this(), _1,
-	                         buffer, _2, ctrl);
-	asio::async_read(m_socket, *buffer, asio::transfer_exactly(rlen), handler);
+	auto handler =
+	    std::bind(&tcp2udp::tcp::session_raw::do_send_handler, shared_from_this(), _1, _2, ctrl);
+	m_buffer_send.consume(m_buffer_send.size()); // Clean any previous data
+	asio::async_read(m_socket, m_buffer_send, asio::transfer_exactly(rlen), handler);
 }
 
 void tcp2udp::tcp::session_raw::do_send_handler(const boost::system::error_code & ec,
-                                                utils::ip::tcp::buffer::ptr buffer, size_t length,
-                                                bool ctrl) {
+                                                size_t length, bool ctrl) {
 
 	if (ec) {
 		if (ec == asio::error::eof || ec == asio::error::connection_reset) {
@@ -96,7 +95,8 @@ void tcp2udp::tcp::session_raw::do_send_handler(const boost::system::error_code 
 	LOG(trace) << "session-raw::send [" << to_string(true) << "]: len=" << length;
 
 	if (ctrl) {
-		auto header = reinterpret_cast<const utils::ip::udp::header *>(buffer->data().data());
+		auto header =
+		    reinterpret_cast<const utils::ip::udp::header *>(m_buffer_send.data().data());
 		if (!header->valid()) {
 			LOG(error) << "session-raw::send [" << to_string() << "]: Invalid UDP header";
 			// Handle next TCP packet
@@ -120,21 +120,19 @@ void tcp2udp::tcp::session_raw::do_send_handler(const boost::system::error_code 
 		do_recv();
 	}
 
-	m_socket_udp_dest.send(buffer->data());
+	m_socket_udp_dest.send(m_buffer_send.data());
 
 	// Handle next TCP packet
 	do_send_init();
 }
 
 void tcp2udp::tcp::session_raw::do_recv() {
-	auto buffer = std::make_shared<std::array<char, 4096>>();
 	auto handler =
-	    std::bind(&tcp2udp::tcp::session_raw::do_recv_handler, shared_from_this(), _1, buffer, _2);
-	m_socket_udp_dest.async_receive(asio::buffer(*buffer), handler);
+	    std::bind(&tcp2udp::tcp::session_raw::do_recv_handler, shared_from_this(), _1, _2);
+	m_socket_udp_dest.async_receive(asio::buffer(m_buffer_recv), handler);
 }
 
 void tcp2udp::tcp::session_raw::do_recv_handler(const boost::system::error_code & ec,
-                                                utils::ip::udp::buffer::ptr buffer,
                                                 size_t length) {
 
 	if (ec) {
@@ -152,7 +150,7 @@ void tcp2udp::tcp::session_raw::do_recv_handler(const boost::system::error_code 
 	                              m_socket_udp_dest.local_endpoint().port(),
 	                              static_cast<uint16_t>(length));
 	std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
-		                                     asio::buffer(*buffer, length) };
+		                                     asio::buffer(m_buffer_recv, length) };
 	m_socket.send(iovec);
 
 	// Handle next UDP packet

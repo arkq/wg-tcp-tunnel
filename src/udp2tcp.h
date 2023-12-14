@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -53,14 +54,12 @@ private:
 	void do_app_keep_alive_handler(const boost::system::error_code & ec);
 
 	void do_send();
-	void do_send_handler(const boost::system::error_code & ec, utils::ip::udp::buffer::ptr buffer,
-	                     size_t length);
-	void send(utils::ip::udp::buffer::ptr buffer, size_t length);
+	void do_send_buffer();
+	void do_send_handler(const boost::system::error_code & ec, size_t length);
 
 	void do_recv_init();
 	void do_recv(size_t rlen, bool ctrl = false);
-	void do_recv_handler(const boost::system::error_code & ec, utils::ip::tcp::buffer::ptr buffer,
-	                     size_t length, bool ctrl);
+	void do_recv_handler(const boost::system::error_code & ec, size_t length, bool ctrl);
 
 	asio::ip::udp::endpoint m_ep_udp_acc;
 	asio::ip::udp::endpoint m_ep_udp_sender;
@@ -74,9 +73,10 @@ private:
 	asio::deadline_timer m_app_keep_alive_timer;
 	// TCP keep-alive idle time in seconds, 0 to disable
 	unsigned int m_tcp_keep_alive_idle_time = 0;
-	// Temporary buffer for keeping UDP packet received before TCP connection
-	utils::ip::udp::buffer::ptr m_send_tmp_buffer;
-	size_t m_send_tmp_buffer_length;
+	// Buffers for sending and receiving data
+	std::array<char, 4096> m_buffer_send;
+	size_t m_buffer_send_length;
+	asio::streambuf m_buffer_recv;
 };
 
 class udp2tcp_dest_provider_simple : virtual public udp2tcp_dest_provider {

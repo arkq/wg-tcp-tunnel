@@ -22,16 +22,8 @@ namespace utils {
 
 namespace asio = boost::asio;
 
-namespace ip::tcp {
-namespace buffer {
-using ptr = std::shared_ptr<asio::streambuf>;
-}; // namespace buffer
-namespace socket {
-using ptr = std::shared_ptr<asio::ip::tcp::socket>;
-}; // namespace socket
-}; // namespace ip::tcp
-
-namespace ip::udp {
+namespace ip {
+namespace udp {
 
 struct header {
 
@@ -57,14 +49,8 @@ struct header {
 // Make sure the header structure is not padded
 static_assert(sizeof(header) == 8, "Invalid UDP header size");
 
-namespace buffer {
-using ptr = std::shared_ptr<std::array<char, 4096>>;
-}; // namespace buffer
-namespace socket {
-using ptr = std::shared_ptr<asio::ip::udp::socket>;
-}; // namespace socket
-
-}; // namespace ip::udp
+}; // namespace udp
+}; // namespace ip
 
 static inline std::pair<std::string, uint16_t> split_host_port(const std::string & str) {
 	auto pos = str.find_last_of(':');

@@ -79,8 +79,7 @@ void udp2tcp::do_connect_handler(const boost::system::error_code & ec) {
 	}
 
 	// Send UDP packet which was waiting for TCP connection
-	send(m_send_tmp_buffer, m_send_tmp_buffer_length);
-	m_send_tmp_buffer.reset();
+	do_send_buffer();
 
 	// Handle next UDP packet
 	do_send();
@@ -130,13 +129,21 @@ void udp2tcp::do_app_keep_alive_handler(const boost::system::error_code & ec) {
 }
 
 void udp2tcp::do_send() {
-	auto buffer = std::make_shared<std::array<char, 4096>>();
-	auto handler = std::bind(&udp2tcp::do_send_handler, this, _1, buffer, _2);
-	m_socket_udp_acc.async_receive_from(asio::buffer(*buffer), m_ep_udp_sender, handler);
+	auto handler = std::bind(&udp2tcp::do_send_handler, this, _1, _2);
+	m_socket_udp_acc.async_receive_from(asio::buffer(m_buffer_send), m_ep_udp_sender, handler);
 }
 
-void udp2tcp::do_send_handler(const boost::system::error_code & ec,
-                              utils::ip::udp::buffer::ptr buffer, size_t length) {
+void udp2tcp::do_send_buffer() {
+	LOG(trace) << "send [" << to_string(true) << "]: len=" << m_buffer_send_length;
+	// Send payload with attached UDP header
+	utils::ip::udp::header header(m_ep_udp_sender.port(), m_ep_udp_acc.port(),
+	                              static_cast<uint16_t>(m_buffer_send_length));
+	std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
+		                                     asio::buffer(m_buffer_send, m_buffer_send_length) };
+	m_socket_tcp_dest.send(iovec);
+}
+
+void udp2tcp::do_send_handler(const boost::system::error_code & ec, size_t length) {
 
 	if (ec) {
 		LOG(error) << "send [" << to_string() << "]: " << ec.message();
@@ -145,28 +152,19 @@ void udp2tcp::do_send_handler(const boost::system::error_code & ec,
 		return;
 	}
 
+	// Save the length of the payload
+	m_buffer_send_length = length;
+
 	if (!m_socket_tcp_dest.is_open()) {
-		m_send_tmp_buffer = buffer;
-		m_send_tmp_buffer_length = length;
 		do_connect();
 		return;
 	}
 
-	send(buffer, length);
+	do_send_buffer();
 	do_app_keep_alive();
 
 	// Handle next UDP packet
 	do_send();
-}
-
-void udp2tcp::send(utils::ip::udp::buffer::ptr buffer, size_t length) {
-	LOG(trace) << "send [" << to_string(true) << "]: len=" << length;
-	// Send payload with attached UDP header
-	utils::ip::udp::header header(m_ep_udp_sender.port(), m_ep_udp_acc.port(),
-	                              static_cast<uint16_t>(length));
-	std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
-		                                     asio::buffer(*buffer, length) };
-	m_socket_tcp_dest.send(iovec);
 }
 
 void udp2tcp::do_recv_init() {
@@ -174,13 +172,12 @@ void udp2tcp::do_recv_init() {
 }
 
 void udp2tcp::do_recv(std::size_t rlen, bool ctrl) {
-	auto buffer = std::make_shared<asio::streambuf>();
-	auto handler = std::bind(&udp2tcp::do_recv_handler, this, _1, buffer, _2, ctrl);
-	asio::async_read(m_socket_tcp_dest, *buffer, asio::transfer_exactly(rlen), handler);
+	auto handler = std::bind(&udp2tcp::do_recv_handler, this, _1, _2, ctrl);
+	m_buffer_recv.consume(m_buffer_recv.size()); // Clear any previous data
+	asio::async_read(m_socket_tcp_dest, m_buffer_recv, asio::transfer_exactly(rlen), handler);
 }
 
-void udp2tcp::do_recv_handler(const boost::system::error_code & ec,
-                              utils::ip::tcp::buffer::ptr buffer, size_t length, bool ctrl) {
+void udp2tcp::do_recv_handler(const boost::system::error_code & ec, size_t length, bool ctrl) {
 
 	if (ec) {
 		if (ec == asio::error::operation_aborted)
@@ -202,7 +199,8 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec,
 	LOG(trace) << "recv [" << to_string(true) << "]: len=" << length;
 
 	if (ctrl) {
-		auto header = reinterpret_cast<const utils::ip::udp::header *>(buffer->data().data());
+		auto header =
+		    reinterpret_cast<const utils::ip::udp::header *>(m_buffer_recv.data().data());
 		if (!header->valid()) {
 			LOG(error) << "recv [" << to_string() << "]: Invalid UDP header";
 			// Handle next TCP packet
@@ -221,7 +219,7 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec,
 	}
 
 	if (m_ep_udp_sender.port() != 0) {
-		m_socket_udp_acc.send_to(buffer->data(), m_ep_udp_sender);
+		m_socket_udp_acc.send_to(m_buffer_recv.data(), m_ep_udp_sender);
 		do_app_keep_alive();
 	}
 

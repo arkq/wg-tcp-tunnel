@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -66,13 +67,13 @@ private:
 		private:
 			void do_send_init();
 			void do_send(size_t rlen, bool ctrl = false);
-			void do_send_handler(const boost::system::error_code & ec,
-			                     utils::ip::tcp::buffer::ptr buffer, size_t length, bool ctrl);
+			void do_send_handler(const boost::system::error_code & ec, size_t length, bool ctrl);
 
 			void do_recv();
-			void do_recv_handler(const boost::system::error_code & ec,
-			                     utils::ip::udp::buffer::ptr buffer, size_t length);
+			void do_recv_handler(const boost::system::error_code & ec, size_t length);
 
+			asio::streambuf m_buffer_send;
+			std::array<char, 4096> m_buffer_recv;
 			bool m_initialized = false;
 		};
 	};
