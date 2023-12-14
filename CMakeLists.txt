@@ -10,24 +10,26 @@ cmake_minimum_required(VERSION 3.12)
 
 project(
 	wg-tcp-tunnel
-	VERSION 1.0.0
+	VERSION 1.1.0
 	DESCRIPTION "WireGuard TCP tunneling"
 	LANGUAGES CXX)
 
 include(GNUInstallDirs)
 
-option(ENABLE_SYSTEMD "Enable systemd support" OFF)
 option(ENABLE_NGROK "Enable NGROK support" OFF)
+option(ENABLE_SYSTEMD "Enable systemd support" OFF)
+option(ENABLE_WEBSOCKET "Enable WebSocket support" OFF)
+
+add_compile_definitions(PROJECT_NAME="${PROJECT_NAME}")
+add_compile_definitions(PROJECT_VERSION="${PROJECT_VERSION}")
+add_compile_definitions(ENABLE_NGROK=$<BOOL:${ENABLE_NGROK}>)
+add_compile_definitions(ENABLE_SYSTEMD=$<BOOL:${ENABLE_SYSTEMD}>)
+add_compile_definitions(ENABLE_WEBSOCKET=$<BOOL:${ENABLE_WEBSOCKET}>)
 
 find_package(Boost 1.40.0 REQUIRED COMPONENTS log log_setup program_options)
 
 add_executable(wg-tcp-tunnel src/main.cpp src/tcp2udp.cpp src/udp2tcp.cpp)
 target_compile_features(wg-tcp-tunnel PRIVATE cxx_std_17)
-
-target_compile_definitions(wg-tcp-tunnel PRIVATE PROJECT_NAME="${PROJECT_NAME}")
-target_compile_definitions(wg-tcp-tunnel PRIVATE PROJECT_VERSION="${PROJECT_VERSION}")
-target_compile_definitions(wg-tcp-tunnel PRIVATE ENABLE_SYSTEMD=$<BOOL:${ENABLE_SYSTEMD}>)
-target_compile_definitions(wg-tcp-tunnel PRIVATE ENABLE_NGROK=$<BOOL:${ENABLE_NGROK}>)
 
 target_link_libraries(wg-tcp-tunnel PRIVATE Boost::log)
 target_link_libraries(wg-tcp-tunnel PRIVATE Boost::log_setup)

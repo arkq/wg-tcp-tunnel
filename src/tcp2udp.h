@@ -15,6 +15,9 @@
 #include <utility>
 
 #include <boost/asio.hpp>
+#if ENABLE_WEBSOCKET
+#	include <boost/beast/websocket.hpp>
+#endif
 
 #include "utils.hpp"
 
@@ -22,6 +25,10 @@ namespace wg {
 namespace tunnel {
 
 namespace asio = boost::asio;
+#if ENABLE_WEBSOCKET
+namespace beast = boost::beast;
+namespace ws = beast::websocket;
+#endif
 using std::size_t;
 
 class tcp2udp {
@@ -32,7 +39,7 @@ public:
 	      m_ep_udp_dest(std::move(ep_udp_dest)), m_tcp_acceptor(ioc, m_ep_tcp_acc) {}
 	~tcp2udp() = default;
 
-	void run();
+	void run(utils::transport transport);
 
 	void keep_alive_app(unsigned int idle_time) { m_app_keep_alive_idle_time = idle_time; }
 	void keep_alive_tcp(unsigned int idle_time) { m_tcp_keep_alive_idle_time = idle_time; }
@@ -76,6 +83,30 @@ private:
 			std::array<char, 4096> m_buffer_recv;
 			bool m_initialized = false;
 		};
+
+#if ENABLE_WEBSOCKET
+		class session_ws : public session, public std::enable_shared_from_this<session_ws> {
+		public:
+			session_ws(tcp2udp & tcp2udp, asio::ip::tcp::socket socket)
+			    : session(tcp2udp, std::move(socket)), m_ws(m_socket) {}
+
+			void run();
+
+		private:
+			void do_accept();
+			void do_accept_handler(const boost::system::error_code & ec);
+
+			void do_send();
+			void do_send_handler(const boost::system::error_code & ec, size_t length);
+
+			void do_recv();
+			void do_recv_handler(const boost::system::error_code & ec, size_t length);
+
+			ws::stream<asio::ip::tcp::socket &> m_ws;
+			beast::flat_buffer m_buffer_send;
+			std::array<char, 4096> m_buffer_recv;
+		};
+#endif
 	};
 
 	void do_accept();
@@ -85,6 +116,8 @@ private:
 	asio::ip::tcp::endpoint m_ep_tcp_acc;
 	asio::ip::udp::endpoint m_ep_udp_dest;
 	asio::ip::tcp::acceptor m_tcp_acceptor;
+	// Transport protocol used for the TCP connection
+	utils::transport m_transport = utils::transport::raw;
 	// Application keep-alive idle time in seconds, 0 to disable
 	unsigned int m_app_keep_alive_idle_time = 0;
 	// TCP keep-alive idle time in seconds, 0 to disable

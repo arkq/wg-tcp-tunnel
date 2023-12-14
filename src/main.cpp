@@ -83,6 +83,7 @@ private:
 
 int main(int argc, char * argv[]) {
 
+	auto transport = wg::utils::transport::raw;
 	asio::ip::tcp::endpoint ep_src_tcp;
 	asio::ip::udp::endpoint ep_dst_udp;
 	asio::ip::udp::endpoint ep_src_udp;
@@ -104,6 +105,11 @@ int main(int argc, char * argv[]) {
 	o_builder("tcp-keep-alive", po::value(&tcp_keep_alive)->implicit_value(120),
 	          "enable TCP keep-alive on TCP socket(s) optionally specifying the keep-alive "
 	          "idle time in seconds");
+
+#if ENABLE_WEBSOCKET
+	bool websocket = false;
+	o_builder("web-socket,W", po::bool_switch(&websocket), "enable WebSocket transport mode");
+#endif
 
 #if ENABLE_NGROK
 	std::string ngrok_api_key;
@@ -219,19 +225,24 @@ int main(int argc, char * argv[]) {
 	wg::tunnel::tcp2udp tcp2udp(ioc, ep_src_tcp, ep_dst_udp);
 	wg::tunnel::udp2tcp udp2tcp(ioc, ep_src_udp, *udp2tcp_dest_provider);
 
+	tcp2udp.keep_alive_tcp(tcp_keep_alive);
+	udp2tcp.keep_alive_tcp(tcp_keep_alive);
 #if ENABLE_NGROK
 	tcp2udp.keep_alive_app(ngrok_keep_alive);
 	udp2tcp.keep_alive_app(ngrok_keep_alive);
 #endif
-	tcp2udp.keep_alive_tcp(tcp_keep_alive);
-	udp2tcp.keep_alive_tcp(tcp_keep_alive);
+#if ENABLE_WEBSOCKET
+	if (websocket) {
+		transport = wg::utils::transport::websocket;
+	}
+#endif
 
 restart:
 
 	if (is_server)
-		tcp2udp.run();
+		tcp2udp.run(transport);
 	if (is_client)
-		udp2tcp.run();
+		udp2tcp.run(transport);
 
 	try {
 		ioc.run();

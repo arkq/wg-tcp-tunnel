@@ -38,7 +38,7 @@ public:
 	      m_app_keep_alive_timer(ioc) {}
 	~udp2tcp() = default;
 
-	void run();
+	void run(utils::transport transport);
 
 	void keep_alive_app(unsigned int idle_time) { m_app_keep_alive_idle_time = idle_time; }
 	void keep_alive_tcp(unsigned int idle_time) { m_tcp_keep_alive_idle_time = idle_time; }
@@ -68,6 +68,8 @@ private:
 	// Provider for obtaining TCP destination endpoint
 	udp2tcp_dest_provider & m_ep_tcp_dest_provider;
 	asio::ip::tcp::endpoint m_ep_tcp_dest_cache;
+	// Transport protocol used for the TCP connection
+	utils::transport m_transport = utils::transport::raw;
 	// Application keep-alive idle time in seconds, 0 to disable
 	unsigned int m_app_keep_alive_idle_time = 0;
 	asio::deadline_timer m_app_keep_alive_timer;

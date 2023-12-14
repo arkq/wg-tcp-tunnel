@@ -22,6 +22,13 @@ namespace utils {
 
 namespace asio = boost::asio;
 
+enum class transport {
+	raw,
+#if ENABLE_WEBSOCKET
+	websocket,
+#endif
+};
+
 namespace ip {
 namespace udp {
 
