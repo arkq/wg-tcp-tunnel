@@ -42,6 +42,9 @@ public:
 
 	void keep_alive_app(unsigned int idle_time) { m_app_keep_alive_idle_time = idle_time; }
 	void keep_alive_tcp(unsigned int idle_time) { m_tcp_keep_alive_idle_time = idle_time; }
+#if ENABLE_WEBSOCKET
+	void ws_headers(utils::http::headers headers) { m_ws_headers = std::move(headers); }
+#endif
 
 private:
 	std::string to_string(bool verbose = false);
@@ -79,6 +82,10 @@ private:
 	std::array<char, 4096> m_buffer_send;
 	size_t m_buffer_send_length;
 	asio::streambuf m_buffer_recv;
+#if ENABLE_WEBSOCKET
+	// List of WebSocket custom headers used during the handshake
+	utils::http::headers m_ws_headers;
+#endif
 };
 
 class udp2tcp_dest_provider_simple : virtual public udp2tcp_dest_provider {

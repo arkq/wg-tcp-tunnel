@@ -13,6 +13,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include <boost/asio.hpp>
 #include <boost/crc.hpp>
@@ -59,11 +60,27 @@ static_assert(sizeof(header) == 8, "Invalid UDP header size");
 }; // namespace udp
 }; // namespace ip
 
-static inline std::pair<std::string, uint16_t> split_host_port(const std::string & str) {
+namespace http {
+
+using header = std::pair<std::string, std::string>;
+using headers = std::vector<header>;
+
+static inline header split_header(const std::string_view str) {
+	auto pos = str.find_first_of(':');
+	if (pos == std::string::npos)
+		throw std::runtime_error("Unable to split HTTP header");
+	// Trim any leading spaces from the value
+	auto pos2 = str.substr(pos + 1).find_first_not_of(' ');
+	return { std::string(str.substr(0, pos)), std::string(str.substr(pos + 1 + pos2)) };
+}
+
+}; // namespace http
+
+static inline std::pair<std::string, uint16_t> split_host_port(const std::string_view str) {
 	auto pos = str.find_last_of(':');
 	if (pos == std::string::npos)
 		throw std::runtime_error("Unable to split host and port");
-	return { str.substr(0, pos), std::stoi(str.substr(pos + 1)) };
+	return { std::string(str.substr(0, pos)), std::stoi(std::string(str.substr(pos + 1))) };
 }
 
 static inline std::string to_string(const asio::ip::tcp::endpoint & ep) {

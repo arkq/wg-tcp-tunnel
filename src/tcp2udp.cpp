@@ -184,6 +184,13 @@ void tcp2udp::tcp::session_ws::run() {
 void tcp2udp::tcp::session_ws::do_accept() {
 	// Set suggested timeout settings for the WebSocket server
 	m_ws.set_option(ws::stream_base::timeout::suggested(beast::role_type::server));
+	// Modify the server handshake response headers
+	m_ws.set_option(ws::stream_base::decorator([&](ws::response_type & res) {
+		LOG(debug) << "session-ws::accept: Sending response: peer="
+		           << utils::to_string(m_socket_ep_remote);
+		for (const auto & [key, value] : m_ws_headers)
+			res.insert(key, value);
+	}));
 	m_ws.async_accept(
 	    std::bind(&tcp2udp::tcp::session_ws::do_accept_handler, shared_from_this(), _1));
 }

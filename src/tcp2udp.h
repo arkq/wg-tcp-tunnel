@@ -43,6 +43,9 @@ public:
 
 	void keep_alive_app(unsigned int idle_time) { m_app_keep_alive_idle_time = idle_time; }
 	void keep_alive_tcp(unsigned int idle_time) { m_tcp_keep_alive_idle_time = idle_time; }
+#if ENABLE_WEBSOCKET
+	void ws_headers(utils::http::headers headers) { m_ws_headers = std::move(headers); }
+#endif
 
 private:
 	union tcp {
@@ -88,7 +91,8 @@ private:
 		class session_ws : public session, public std::enable_shared_from_this<session_ws> {
 		public:
 			session_ws(tcp2udp & tcp2udp, asio::ip::tcp::socket socket)
-			    : session(tcp2udp, std::move(socket)), m_ws(m_socket) {}
+			    : session(tcp2udp, std::move(socket)), m_ws(m_socket),
+			      m_ws_headers(tcp2udp.m_ws_headers) {}
 
 			void run();
 
@@ -103,6 +107,7 @@ private:
 			void do_recv_handler(const boost::system::error_code & ec, size_t length);
 
 			ws::stream<asio::ip::tcp::socket &> m_ws;
+			utils::http::headers & m_ws_headers;
 			beast::flat_buffer m_buffer_send;
 			std::array<char, 4096> m_buffer_recv;
 		};
@@ -122,6 +127,10 @@ private:
 	unsigned int m_app_keep_alive_idle_time = 0;
 	// TCP keep-alive idle time in seconds, 0 to disable
 	unsigned int m_tcp_keep_alive_idle_time = 0;
+#if ENABLE_WEBSOCKET
+	// List of WebSocket custom headers used during the handshake
+	utils::http::headers m_ws_headers;
+#endif
 };
 
 }; // namespace tunnel

@@ -22,6 +22,7 @@
 #include "ngrok.h"
 #include "tcp2udp.h"
 #include "udp2tcp.h"
+#include "utils.hpp"
 #include "version.h"
 
 namespace asio = boost::asio;
@@ -79,6 +80,20 @@ private:
 
 }; // namespace program_options
 
+void validate(boost::any & v, const std::vector<std::string> & values, wg::utils::http::headers *,
+              int) {
+	const std::string & s = po::validators::get_single_string(values);
+	if (v.empty())
+		v = boost::any(wg::utils::http::headers());
+	try {
+		auto & headers = boost::any_cast<wg::utils::http::headers &>(v);
+		headers.push_back(wg::utils::http::split_header(s));
+	} catch (const std::exception &) {
+		throw po::error_with_option_name(
+		    "the HTTP header in option '%canonical_option%' is invalid");
+	}
+}
+
 }; // namespace boost
 
 int main(int argc, char * argv[]) {
@@ -108,7 +123,10 @@ int main(int argc, char * argv[]) {
 
 #if ENABLE_WEBSOCKET
 	bool websocket = false;
+	wg::utils::http::headers websocket_headers;
 	o_builder("web-socket,W", po::bool_switch(&websocket), "enable WebSocket transport mode");
+	o_builder("web-socket-header,H", po::value(&websocket_headers)->composing(),
+	          "add WebSocket header; may be specified multiple times");
 #endif
 
 #if ENABLE_NGROK
@@ -221,6 +239,14 @@ int main(int argc, char * argv[]) {
 		return EXIT_FAILURE;
 	}
 
+#if ENABLE_WEBSOCKET
+	if (websocket_headers.size() > 0 && !websocket) {
+		std::cerr << PROJECT_NAME << ": '--web-socket-header' can be used only with "
+		          << "the WebSocket transport mode enabled" << std::endl;
+		return EXIT_FAILURE;
+	}
+#endif
+
 	asio::io_context ioc;
 	wg::tunnel::tcp2udp tcp2udp(ioc, ep_src_tcp, ep_dst_udp);
 	wg::tunnel::udp2tcp udp2tcp(ioc, ep_src_udp, *udp2tcp_dest_provider);
@@ -234,6 +260,8 @@ int main(int argc, char * argv[]) {
 #if ENABLE_WEBSOCKET
 	if (websocket) {
 		transport = wg::utils::transport::websocket;
+		tcp2udp.ws_headers(websocket_headers);
+		udp2tcp.ws_headers(websocket_headers);
 	}
 #endif
 
