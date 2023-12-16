@@ -17,6 +17,7 @@ jobs:
         build-type: [ Release ]
         features:
         - -DENABLE_NGROK=ON -DENABLE_SYSTEMD=ON
+        - -DENABLE_NGROK=ON -DENABLE_WEBSOCKET=ON
         - -DENABLE_NGROK=OFF
       fail-fast: false
     runs-on: ${{ matrix.os }}

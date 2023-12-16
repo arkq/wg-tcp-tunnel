@@ -24,6 +24,10 @@ namespace wg {
 namespace tunnel {
 
 namespace asio = boost::asio;
+#if ENABLE_WEBSOCKET
+namespace beast = boost::beast;
+namespace ws = beast::websocket;
+#endif
 using namespace std::placeholders;
 #define LOG(lvl) BOOST_LOG_TRIVIAL(lvl) << "udp2tcp::"
 
@@ -32,6 +36,10 @@ void udp2tcp::run(utils::transport transport) {
 	LOG(debug) << "run: " << utils::to_string(m_ep_udp_acc) << " >> "
 	           << utils::to_string(m_ep_tcp_dest_cache);
 	m_transport = transport;
+#if ENABLE_WEBSOCKET
+	// Ensure that the WebSocket stream will be binary
+	m_ws.binary(true);
+#endif
 	do_send();
 }
 
@@ -69,7 +77,7 @@ void udp2tcp::do_connect_handler(const boost::system::error_code & ec) {
 		return;
 	}
 
-	LOG(debug) << "connect [" << utils::to_string(m_ep_tcp_dest_cache) << "]: Connected";
+	LOG(debug) << "connect: Connected: peer=" << utils::to_string(m_ep_tcp_dest_cache);
 
 	if (m_tcp_keep_alive_idle_time > 0) {
 		LOG(debug) << "tcp-keepalive [" << utils::to_string(m_socket_tcp_dest.remote_endpoint())
@@ -78,6 +86,22 @@ void udp2tcp::do_connect_handler(const boost::system::error_code & ec) {
 		m_socket_tcp_dest.set_option(asio::socket_base::keep_alive(true));
 		m_socket_tcp_dest.set_option(asio::socket_base::linger(true, 0));
 	}
+
+#if ENABLE_WEBSOCKET
+	if (m_transport == utils::transport::websocket) {
+		// Set suggested timeout settings for the websocket client
+		m_ws.set_option(ws::stream_base::timeout::suggested(beast::role_type::client));
+		// Modify the client handshake request headers
+		m_ws.set_option(ws::stream_base::decorator([&](ws::request_type & req) {
+			for (const auto & [key, value] : m_ws_headers)
+				req.set(key, value);
+		}));
+		LOG(debug) << "connect: Handshake: peer=" << utils::to_string(m_ep_tcp_dest_cache);
+		// Perform WebSocket handshake. In order to override the hard-coded "Host"
+		// header, user needs to provide the "Host" header via ws_headers() method.
+		m_ws.handshake("example.com", "/");
+	}
+#endif
 
 	// Send UDP packet which was waiting for TCP connection
 	do_send_buffer();
@@ -136,12 +160,22 @@ void udp2tcp::do_send() {
 
 void udp2tcp::do_send_buffer() {
 	LOG(trace) << "send [" << to_string(true) << "]: len=" << m_buffer_send_length;
-	// Send payload with attached UDP header
-	utils::ip::udp::header header(m_ep_udp_sender.port(), m_ep_udp_acc.port(),
-	                              static_cast<uint16_t>(m_buffer_send_length));
-	std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
-		                                     asio::buffer(m_buffer_send, m_buffer_send_length) };
-	m_socket_tcp_dest.send(iovec);
+	switch (m_transport) {
+	case utils::transport::raw: {
+		// Send payload with attached UDP header
+		utils::ip::udp::header header(m_ep_udp_sender.port(), m_ep_udp_acc.port(),
+		                              static_cast<uint16_t>(m_buffer_send_length));
+		std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
+			                                     asio::buffer(m_buffer_send,
+			                                                  m_buffer_send_length) };
+		m_socket_tcp_dest.send(iovec);
+	} break;
+#if ENABLE_WEBSOCKET
+	case utils::transport::websocket:
+		m_ws.write(asio::buffer(m_buffer_send, m_buffer_send_length));
+		break;
+#endif
+	}
 }
 
 void udp2tcp::do_send_handler(const boost::system::error_code & ec, size_t length) {
@@ -169,7 +203,16 @@ void udp2tcp::do_send_handler(const boost::system::error_code & ec, size_t lengt
 }
 
 void udp2tcp::do_recv_init() {
-	do_recv(sizeof(utils::ip::udp::header), true);
+	switch (m_transport) {
+	case utils::transport::raw:
+		do_recv(sizeof(utils::ip::udp::header), true);
+		break;
+#if ENABLE_WEBSOCKET
+	case utils::transport::websocket:
+		do_ws_recv();
+		break;
+#endif
+	}
 }
 
 void udp2tcp::do_recv(std::size_t rlen, bool ctrl) {
@@ -227,6 +270,43 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec, size_t lengt
 	// Handle next TCP packet
 	do_recv_init();
 }
+
+#if ENABLE_WEBSOCKET
+
+void udp2tcp::do_ws_recv() {
+	m_ws_buffer_recv.clear();
+	auto handler = std::bind(&udp2tcp::do_ws_recv_handler, this, _1, _2);
+	m_ws.async_read(m_ws_buffer_recv, handler);
+}
+
+void udp2tcp::do_ws_recv_handler(const boost::system::error_code & ec, size_t length) {
+
+	if (ec) {
+		if (ec == asio::error::operation_aborted)
+			return;
+		if (ec == asio::error::eof || ec == asio::error::connection_reset) {
+			LOG(debug) << "recv: Connection closed: peer="
+			           << utils::to_string(m_ep_tcp_dest_cache);
+			m_ep_tcp_dest_cache = asio::ip::tcp::endpoint();
+			m_socket_tcp_dest.close();
+			return;
+		}
+		LOG(error) << "recv [" << to_string() << "]: " << ec.message();
+		// Try to recover from error
+		do_ws_recv();
+		return;
+	}
+
+	LOG(trace) << "recv [" << to_string(true) << "]: len=" << length;
+
+	if (m_ep_udp_sender.port() != 0)
+		m_socket_udp_acc.send_to(m_ws_buffer_recv.data(), m_ep_udp_sender);
+
+	// Handle next TCP packet
+	do_ws_recv();
+}
+
+#endif
 
 #if ENABLE_NGROK
 asio::ip::tcp::endpoint udp2tcp_dest_provider_ngrok::tcp_dest_ep() {

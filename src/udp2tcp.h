@@ -14,6 +14,9 @@
 #include <string>
 
 #include <boost/asio.hpp>
+#if ENABLE_WEBSOCKET
+#	include <boost/beast/websocket.hpp>
+#endif
 
 #include "ngrok.h"
 #include "utils.hpp"
@@ -22,6 +25,10 @@ namespace wg {
 namespace tunnel {
 
 namespace asio = boost::asio;
+#if ENABLE_WEBSOCKET
+namespace beast = boost::beast;
+namespace ws = beast::websocket;
+#endif
 using std::size_t;
 
 class udp2tcp_dest_provider {
@@ -64,6 +71,11 @@ private:
 	void do_recv(size_t rlen, bool ctrl = false);
 	void do_recv_handler(const boost::system::error_code & ec, size_t length, bool ctrl);
 
+#if ENABLE_WEBSOCKET
+	void do_ws_recv();
+	void do_ws_recv_handler(const boost::system::error_code & ec, size_t length);
+#endif
+
 	asio::ip::udp::endpoint m_ep_udp_acc;
 	asio::ip::udp::endpoint m_ep_udp_sender;
 	asio::ip::udp::socket m_socket_udp_acc;
@@ -83,6 +95,8 @@ private:
 	size_t m_buffer_send_length;
 	asio::streambuf m_buffer_recv;
 #if ENABLE_WEBSOCKET
+	ws::stream<asio::ip::tcp::socket &> m_ws{ m_socket_tcp_dest };
+	beast::flat_buffer m_ws_buffer_recv;
 	// List of WebSocket custom headers used during the handshake
 	utils::http::headers m_ws_headers;
 #endif
