@@ -35,7 +35,7 @@ jobs:
         libboost-program-options-dev
     - uses: actions/checkout@v4
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
+      uses: github/codeql-action/init@v3
       with:
         languages: cpp
         queries: security-and-quality
@@ -46,11 +46,18 @@ jobs:
     - name: Build Project
       run: cmake --build build
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
+      uses: github/codeql-action/analyze@v3
 
   cpp-linter:
     runs-on: ubuntu-latest
     steps:
+    - name: Install Dependencies (Ubuntu)
+      run: >
+        sudo apt install --no-install-recommends --yes
+        libboost-dev
+        libboost-log-dev
+        libboost-program-options-dev
+        libssl-dev
     - uses: actions/checkout@v4
     - name: Run C++ Linter (clang-format & clang-tidy)
       uses: cpp-linter/cpp-linter-action@v2

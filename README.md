@@ -28,7 +28,7 @@ On Debian-based systems all dependencies can be installed by running:
 
 ```sh
 sudo apt install \
-  libboost-dev libboost-log-dev libboost-program-options-dev \
+  libboost-dev libboost-log-dev libboost-program-options-dev libssl-dev \
   cmake g++
 ```
 

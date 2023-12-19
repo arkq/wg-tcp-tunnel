@@ -29,6 +29,7 @@ jobs:
         libboost-dev
         libboost-log-dev
         libboost-program-options-dev
+        libssl-dev
     - name: Install Dependencies (Windows)
       if: runner.os == 'Windows'
       run: >
