@@ -32,6 +32,14 @@ sudo apt install \
   cmake g++
 ```
 
+On [Termux](https://termux.dev/), one can get all dependencies by running:
+
+```sh
+pkg install \
+  boost boost-headers openssl \
+  cmake clang
+```
+
 ### Building
 
 ```sh
