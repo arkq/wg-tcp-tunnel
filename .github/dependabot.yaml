@@ -4,8 +4,8 @@
 version: 2
 updates:
 
-  # Check for updates to GitHub Actions every week
+  # Check for updates to GitHub Actions every month
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"

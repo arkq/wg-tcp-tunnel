@@ -1,6 +1,6 @@
 # CMakeLists.txt
 #
-# Copyright (c) 2023 Arkadiusz Bokowy
+# Copyright (c) 2023-2024 Arkadiusz Bokowy
 #
 # This file is a part of wg-tcp-tunnel.
 #
@@ -25,6 +25,11 @@ add_compile_definitions(PROJECT_VERSION="${PROJECT_VERSION}")
 add_compile_definitions(ENABLE_NGROK=$<BOOL:${ENABLE_NGROK}>)
 add_compile_definitions(ENABLE_SYSTEMD=$<BOOL:${ENABLE_SYSTEMD}>)
 add_compile_definitions(ENABLE_WEBSOCKET=$<BOOL:${ENABLE_WEBSOCKET}>)
+
+# NOTE: The selected Windows version needs to match the version against which
+#       the Boost library was compiled. Otherwise, application will not link
+#       properly.
+add_compile_definitions(_WIN32_WINNT=0x0A00)
 
 find_package(Boost 1.40.0 REQUIRED COMPONENTS log log_setup program_options)
 
