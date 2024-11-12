@@ -13,3 +13,6 @@ PointerAlignment: Middle
 SortIncludes: CaseInsensitive
 UseTab: ForIndentation
 ---
+Language: CSharp
+UseTab: ForIndentation
+---
