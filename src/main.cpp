@@ -104,13 +104,15 @@ int main(int argc, char * argv[]) {
 	asio::ip::udp::endpoint ep_src_udp;
 	asio::ip::tcp::endpoint ep_dst_tcp;
 	unsigned int tcp_keep_alive = 0;
-	size_t verbose;
+	size_t count_verbose;
+	size_t count_quiet;
 
 	po::options_description options("Options");
 	auto o_builder = options.add_options();
 	o_builder("help,h", "print this help message and exit");
 	o_builder("version,V", "print version and exit");
-	o_builder("verbose,v", new po::counter(&verbose), "increase verbosity level");
+	o_builder("verbose,v", new po::counter(&count_verbose), "increase verbosity level");
+	o_builder("quiet,q", new po::counter(&count_quiet), "decrease verbosity level");
 	o_builder("src-tcp,T", po::value(&ep_src_tcp), "source TCP address and port");
 	auto dst_udp_default = asio::ip::udp::endpoint(asio::ip::make_address("127.0.0.1"), 51820);
 	o_builder("dst-udp,u", po::value(&ep_dst_udp)->default_value(dst_udp_default),
@@ -176,16 +178,17 @@ int main(int argc, char * argv[]) {
 		logging::add_console_log(std::clog, logging::keywords::format = "[%Severity%] %Message%");
 #endif
 
-	switch (verbose) {
-	case 0:
+	int verbose = count_verbose - count_quiet;
+	if (verbose < 0) {
+		logging::core::get()->set_filter(logging::trivial::severity >= logging::trivial::error);
+	} else if (verbose == 0) {
+		logging::core::get()->set_filter(logging::trivial::severity >= logging::trivial::warning);
+	} else if (verbose == 1) {
 		logging::core::get()->set_filter(logging::trivial::severity >= logging::trivial::info);
-		break;
-	case 1:
+	} else if (verbose == 2) {
 		logging::core::get()->set_filter(logging::trivial::severity >= logging::trivial::debug);
-		break;
-	default:
+	} else {
 		logging::core::get()->set_filter(logging::trivial::severity >= logging::trivial::trace);
-		break;
 	}
 
 	wg::tunnel::udp2tcp_dest_provider_simple udp2tcp_dest_provider_simple(ep_dst_tcp);

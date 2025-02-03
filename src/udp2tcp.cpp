@@ -33,8 +33,8 @@ using namespace std::placeholders;
 
 void udp2tcp::run(utils::transport transport) {
 	m_ep_tcp_dest_cache = asio::ip::tcp::endpoint();
-	LOG(debug) << "run: " << utils::to_string(m_ep_udp_acc) << " >> "
-	           << utils::to_string(m_ep_tcp_dest_cache);
+	LOG(info) << "run: " << utils::to_string(m_ep_udp_acc) << " >> "
+	          << utils::to_string(m_ep_tcp_dest_cache);
 	m_transport = transport;
 #if ENABLE_WEBSOCKET
 	// Ensure that the WebSocket stream will be binary
@@ -246,7 +246,7 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec, size_t lengt
 		auto header =
 		    reinterpret_cast<const utils::ip::udp::header *>(m_buffer_recv.data().data());
 		if (!header->valid()) {
-			LOG(error) << "recv [" << to_string() << "]: Invalid UDP header";
+			LOG(warning) << "recv [" << to_string() << "]: Invalid UDP header";
 			// Handle next TCP packet
 			do_recv_init();
 			return;

@@ -30,8 +30,8 @@ using namespace std::placeholders;
 #define LOG(lvl) BOOST_LOG_TRIVIAL(lvl) << "tcp2udp::"
 
 void tcp2udp::run(utils::transport transport) {
-	LOG(debug) << "run: " << utils::to_string(m_ep_tcp_acc) << " >> "
-	           << utils::to_string(m_ep_udp_dest);
+	LOG(info) << "run: " << utils::to_string(m_ep_tcp_acc) << " >> "
+	          << utils::to_string(m_ep_udp_dest);
 	m_transport = transport;
 	do_accept();
 }
@@ -73,7 +73,7 @@ void tcp2udp::do_accept_handler(const boost::system::error_code & ec, asio::ip::
 }
 
 void tcp2udp::tcp::session_raw::run() {
-	LOG(debug) << "session-raw::run: " << to_string();
+	LOG(info) << "session-raw::run: " << to_string();
 	// Start handling TCP packets
 	do_send_init();
 }
@@ -112,7 +112,7 @@ void tcp2udp::tcp::session_raw::do_send_handler(const boost::system::error_code 
 		auto header =
 		    reinterpret_cast<const utils::ip::udp::header *>(m_buffer_send.data().data());
 		if (!header->valid()) {
-			LOG(error) << "session-raw::send [" << to_string() << "]: Invalid UDP header";
+			LOG(warning) << "session-raw::send [" << to_string() << "]: Invalid UDP header";
 			// Handle next TCP packet
 			do_send_init();
 			return;
@@ -174,7 +174,7 @@ void tcp2udp::tcp::session_raw::do_recv_handler(const boost::system::error_code 
 #if ENABLE_WEBSOCKET
 
 void tcp2udp::tcp::session_ws::run() {
-	LOG(debug) << "session-ws::run: " << to_string();
+	LOG(info) << "session-ws::run: " << to_string();
 	// Ensure that the WebSocket stream will be binary
 	m_ws.binary(true);
 	// Start handling WebSocket handshake
