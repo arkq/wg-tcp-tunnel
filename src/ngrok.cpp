@@ -102,6 +102,10 @@ std::vector<endpoint> client::endpoints() {
 
 	asio::io_context ioc;
 	asio::ssl::context ctx(asio::ssl::context::sslv23_client);
+	ctx.set_options(asio::ssl::context::default_workarounds);
+	// Disable deprecated SSL/TLS protocol versions
+	ctx.set_options(asio::ssl::context::no_tlsv1 | asio::ssl::context::no_tlsv1_1 |
+	                asio::ssl::context::no_sslv2 | asio::ssl::context::no_sslv3);
 	asio::ssl::stream<asio::ip::tcp::socket> socket(ioc, ctx);
 	asio::ip::tcp::resolver resolver(ioc);
 
