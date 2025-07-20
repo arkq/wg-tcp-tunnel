@@ -45,7 +45,10 @@ pkg install \
 ```sh
 cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Release \
+  -DENABLE_RUNIT=ON \
+  -DWGTT_RUNIT_ARGS="-U 127.0.0.1:51820 --ngrok-dst-tcp-endpoint uri=tcp:.*" \
   -DENABLE_SYSTEMD=ON \
+  -DWGTT_SYSTEMD_ARGS="-v -T 0.0.0.0:51820 -u 127.0.0.1:51820" \
   -DENABLE_WEBSOCKET=ON \
   -DENABLE_NGROK=ON
 cmake --build build
@@ -87,6 +90,12 @@ support for getting NGROK endpoint and using it as a destination address. In
 order to use this feature, one needs to specify the `--ngrok-api-key=KEY` and
 `--ngrok-dst-tcp-endpoint=ENDPOINT` options. For more information about these
 options, please refer to the `--help` output.
+
+On Termux, the `wg-tcp-tunnel` can be run as a service using the
+[termux-services](https://wiki.termux.com/wiki/Termux-services) package. In
+order to automatically install the "wg-tcp-tunnel" service, configure the
+project with `-DENABLE_RUNIT=ON`. For `wg-tcp-tunnel` command line arguments
+customization use the `-DWGTT_RUNIT_ARGS="..."` option.
 
 ## License
 

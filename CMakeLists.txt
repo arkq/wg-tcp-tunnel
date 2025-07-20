@@ -21,8 +21,14 @@ endif()
 include(GNUInstallDirs)
 
 option(ENABLE_NGROK "Enable NGROK support" OFF)
+option(ENABLE_RUNIT "Enable runit support" OFF)
 option(ENABLE_SYSTEMD "Enable systemd support" OFF)
 option(ENABLE_WEBSOCKET "Enable WebSocket support" OFF)
+
+set(WGTT_RUNIT_ARGUMENTS "-U 127.0.0.1:51820 --ngrok-dst-tcp-endpoint uri=tcp:.*"
+	CACHE STRING "Command line arguments used by the runit script")
+set(WGTT_SYSTEMD_ARGUMENTS "-T 0.0.0.0:51820 -u 127.0.0.1:51820"
+	CACHE STRING "Command line arguments used by the systemd service")
 
 add_compile_definitions(PROJECT_NAME="${PROJECT_NAME}")
 add_compile_definitions(PROJECT_VERSION="${PROJECT_VERSION}")
@@ -52,10 +58,32 @@ if(ENABLE_NGROK)
 	target_link_libraries(wg-tcp-tunnel PRIVATE OpenSSL::SSL)
 endif()
 
+if(ENABLE_RUNIT)
+	configure_file(
+		${CMAKE_SOURCE_DIR}/misc/runit/run.in
+		${CMAKE_BINARY_DIR}/misc/runit/run
+		@ONLY)
+	set(RUNIT_SERVICE_DIR
+		"${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/service/wg-tcp-tunnel")
+	# Install the runit service script.
+	install(PROGRAMS ${CMAKE_BINARY_DIR}/misc/runit/run
+		DESTINATION ${RUNIT_SERVICE_DIR})
+	# Install the symbolic link to the runit service logger.
+	install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory
+			${RUNIT_SERVICE_DIR}/log)")
+	install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
+			${CMAKE_INSTALL_FULL_DATAROOTDIR}/termux-services/svlogger
+			${RUNIT_SERVICE_DIR}/log/run)")
+endif()
+
 if(ENABLE_SYSTEMD)
+	configure_file(
+		${CMAKE_SOURCE_DIR}/misc/systemd/wg-tcp-tunnel.service.in
+		${CMAKE_BINARY_DIR}/misc/systemd/wg-tcp-tunnel.service
+		@ONLY)
 	set(SYSTEMD_SYSTEM_DIR "${CMAKE_INSTALL_FULL_LIBDIR}/systemd/system")
-	install(FILES ${CMAKE_SOURCE_DIR}/misc/systemd/wg-tcp-tunnel.service
-			DESTINATION ${SYSTEMD_SYSTEM_DIR})
+	install(FILES ${CMAKE_BINARY_DIR}/misc/systemd/wg-tcp-tunnel.service
+		DESTINATION ${SYSTEMD_SYSTEM_DIR})
 endif()
 
 if(WIN32)
