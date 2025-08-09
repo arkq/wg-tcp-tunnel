@@ -25,9 +25,9 @@ option(ENABLE_RUNIT "Enable runit support" OFF)
 option(ENABLE_SYSTEMD "Enable systemd support" OFF)
 option(ENABLE_WEBSOCKET "Enable WebSocket support" OFF)
 
-set(WGTT_RUNIT_ARGUMENTS "-U 127.0.0.1:51820 --ngrok-dst-tcp-endpoint uri=tcp:.*"
+set(WGTT_RUNIT_ARGS "-U 127.0.0.1:51820 --ngrok-dst-tcp-endpoint uri=tcp:.*"
 	CACHE STRING "Command line arguments used by the runit script")
-set(WGTT_SYSTEMD_ARGUMENTS "-T 0.0.0.0:51820 -u 127.0.0.1:51820"
+set(WGTT_SYSTEMD_ARGS "-T 0.0.0.0:51820 -u 127.0.0.1:51820"
 	CACHE STRING "Command line arguments used by the systemd service")
 
 add_compile_definitions(PROJECT_NAME="${PROJECT_NAME}")
