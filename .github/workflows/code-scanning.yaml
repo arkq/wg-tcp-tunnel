@@ -18,7 +18,7 @@ jobs:
   cmake-lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Run CMake Linter
       uses: puneetmatharu/cmake-format-lint-action@main
       with:
@@ -33,7 +33,7 @@ jobs:
         libboost-dev
         libboost-log-dev
         libboost-program-options-dev
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v3
       with:
@@ -58,7 +58,7 @@ jobs:
         libboost-log-dev
         libboost-program-options-dev
         libssl-dev
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Run C++ Linter (clang-format & clang-tidy)
       uses: cpp-linter/cpp-linter-action@v2
       id: cpp-linter
@@ -70,7 +70,7 @@ jobs:
   markdown-lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Run Markdown Linter
       uses: nosborn/github-action-markdown-cli@v3
       with:
