@@ -1,3 +1,7 @@
+# wg-tcp-tunnel - code-scanning.yaml
+# SPDX-FileCopyrightText: 2023-2025 Arkadiusz Bokowy and contributors
+# SPDX-License-Identifier: MIT
+
 name: Code Scanning
 
 on:
@@ -18,7 +22,7 @@ jobs:
   cmake-lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Run CMake Linter
       uses: puneetmatharu/cmake-format-lint-action@main
       with:
@@ -33,9 +37,9 @@ jobs:
         libboost-dev
         libboost-log-dev
         libboost-program-options-dev
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
+      uses: github/codeql-action/init@v4
       with:
         languages: cpp
         queries: security-and-quality
@@ -46,7 +50,7 @@ jobs:
     - name: Build Project
       run: cmake --build build
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
+      uses: github/codeql-action/analyze@v4
 
   cpp-linter:
     runs-on: ubuntu-latest
@@ -58,7 +62,7 @@ jobs:
         libboost-log-dev
         libboost-program-options-dev
         libssl-dev
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Run C++ Linter (clang-format & clang-tidy)
       uses: cpp-linter/cpp-linter-action@v2
       id: cpp-linter
@@ -70,8 +74,15 @@ jobs:
   markdown-lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Run Markdown Linter
       uses: nosborn/github-action-markdown-cli@v3
       with:
         files: ${{ github.workspace }}
+
+  reuse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: REUSE Compliance Check
+        uses: fsfe/reuse-action@v6

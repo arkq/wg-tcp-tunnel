@@ -1,3 +1,7 @@
+# wg-tcp-tunnel - build-and-test.yaml
+# SPDX-FileCopyrightText: 2023-2025 Arkadiusz Bokowy and contributors
+# SPDX-License-Identifier: MIT
+
 name: Build and Test
 
 on:
@@ -41,7 +45,7 @@ jobs:
         boost-log
         boost-program-options
         boost-property-tree
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Configure Project (Ubuntu)
       if: runner.os == 'Linux'
       env:

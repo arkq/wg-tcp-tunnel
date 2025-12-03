@@ -1,10 +1,6 @@
-// wintray.cs
-//
-// Copyright (c) 2025 Arkadiusz Bokowy
-//
-// This file is a part of wg-tcp-tunnel.
-//
-// This project is licensed under the terms of the MIT license.
+// wg-tcp-tunnel - wintray.cs
+// SPDX-FileCopyrightText: 2025 Arkadiusz Bokowy and contributors
+// SPDX-License-Identifier: MIT
 
 using System;
 using System.Collections.Generic;

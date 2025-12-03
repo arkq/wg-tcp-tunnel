@@ -1,10 +1,6 @@
-// tcp2udp.h
-//
-// Copyright (c) 2023 Arkadiusz Bokowy
-//
-// This file is a part of wg-tcp-tunnel.
-//
-// This project is licensed under the terms of the MIT license.
+// wg-tcp-tunnel - tcp2udp.h
+// SPDX-FileCopyrightText: 2023-2025 Arkadiusz Bokowy and contributors
+// SPDX-License-Identifier: MIT
 
 #pragma once
 

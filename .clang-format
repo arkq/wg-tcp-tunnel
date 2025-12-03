@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2023-2025 Arkadiusz Bokowy and contributors
+# SPDX-License-Identifier: MIT
 ---
 BasedOnStyle: LLVM
 ColumnLimit: 99

@@ -1,4 +1,11 @@
+<!--
+SPDX-FileCopyrightText: 2023-2025 Arkadiusz Bokowy and contributors
+SPDX-License-Identifier: MIT
+-->
+
 # WireGuard TCP tunneling
+
+[![REUSE status](https://api.reuse.software/badge/github.com/arkq/wg-tcp-tunnel)](https://api.reuse.software/info/github.com/arkq/wg-tcp-tunnel)
 
 ## About
 

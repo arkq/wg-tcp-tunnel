@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2023-2025 Arkadiusz Bokowy and contributors
+# SPDX-License-Identifier: MIT
+
 [Unit]
 Description=WireGuard TCP tunneling service
 Requires=wg-quick.target

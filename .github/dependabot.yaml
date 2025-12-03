@@ -1,5 +1,6 @@
-# dependabot.yaml
-# Copyright (c) 2023 Arkadiusz Bokowy
+# wg-tcp-tunnel - dependabot.yaml
+# SPDX-FileCopyrightText: 2023-2025 Arkadiusz Bokowy and contributors
+# SPDX-License-Identifier: MIT
 
 version: 2
 updates:
