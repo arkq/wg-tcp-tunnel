@@ -28,11 +28,10 @@ using std::size_t;
 
 namespace boost {
 
-namespace asio {
-namespace ip {
+namespace asio::ip {
 
 template <typename T>
-void validate(boost::any & v, const std::vector<std::string> & values, T *, int) {
+auto validate(boost::any & v, const std::vector<std::string> & values, T *, int) -> void {
 	po::validators::check_first_occurrence(v);
 	const std::string & s = po::validators::get_single_string(values);
 	auto pos = s.find_last_of(':');
@@ -42,7 +41,10 @@ void validate(boost::any & v, const std::vector<std::string> & values, T *, int)
 	try {
 		auto addr = asio::ip::make_address(s.substr(0, pos));
 		auto port = std::stoi(s.substr(pos + 1));
-		v = boost::any(T(addr, port));
+		if (port < 0 || port > 65535)
+			throw po::error_with_option_name(
+			    "the port number in option '%canonical_option%' is invalid");
+		v = boost::any(T(addr, static_cast<unsigned short>(port)));
 	} catch (const boost::system::system_error &) {
 		throw po::error_with_option_name(
 		    "the IP address in option '%canonical_option%' is invalid");
@@ -52,32 +54,31 @@ void validate(boost::any & v, const std::vector<std::string> & values, T *, int)
 	}
 }
 
-}; // namespace ip
-}; // namespace asio
+}; // namespace asio::ip
 
 namespace program_options {
 
 class counter : public typed_value<size_t> {
 public:
-	counter(size_t * store = nullptr) : typed_value<size_t>(store), m_count(0) {
+	counter(size_t * store = nullptr) : typed_value<size_t>(store) {
 		// Make counter a non-value option
 		default_value(0);
 		zero_tokens();
 	}
-	virtual ~counter() = default;
-	virtual void xparse(boost::any & store, const std::vector<std::string> &) const {
+	~counter() override = default;
+	auto xparse(boost::any & store, const std::vector<std::string> &) const -> void override {
 		// Increment counter on each option occurrence
 		store = boost::any(++m_count);
 	}
 
 private:
-	mutable size_t m_count;
+	mutable size_t m_count{ 0 };
 };
 
 }; // namespace program_options
 
-void validate(boost::any & v, const std::vector<std::string> & values, wg::utils::http::headers *,
-              int) {
+auto validate(boost::any & v, const std::vector<std::string> & values, wg::utils::http::headers *,
+              int) -> void {
 	const std::string & s = po::validators::get_single_string(values);
 	if (v.empty())
 		v = boost::any(wg::utils::http::headers());
@@ -92,14 +93,14 @@ void validate(boost::any & v, const std::vector<std::string> & values, wg::utils
 
 }; // namespace boost
 
-int main(int argc, char * argv[]) {
+auto main(int argc, char * argv[]) -> int {
 
 	auto transport = wg::utils::transport::raw;
 	asio::ip::tcp::endpoint ep_src_tcp;
 	asio::ip::udp::endpoint ep_dst_udp;
 	asio::ip::udp::endpoint ep_src_udp;
 	asio::ip::tcp::endpoint ep_dst_tcp;
-	unsigned int tcp_keep_alive = 0;
+	int tcp_keep_alive = 0;
 	size_t count_verbose;
 	size_t count_quiet;
 
@@ -130,7 +131,7 @@ int main(int argc, char * argv[]) {
 #if ENABLE_NGROK
 	std::string ngrok_api_key;
 	std::string ngrok_dst_tcp_endpoint;
-	unsigned int ngrok_keep_alive = 0;
+	int ngrok_keep_alive = 0;
 	o_builder("ngrok-api-key", po::value(&ngrok_api_key)->default_value("ENV:NGROK_API_KEY"),
 	          "NGROK API key or 'ENV:VARIABLE' to read the key from the environment variable");
 	o_builder("ngrok-dst-tcp-endpoint", po::value(&ngrok_dst_tcp_endpoint),
@@ -147,24 +148,24 @@ int main(int argc, char * argv[]) {
 		po::store(po::parse_command_line(argc, argv, options), args);
 		po::notify(args);
 	} catch (const std::exception & e) {
-		std::cerr << PROJECT_NAME << ": " << e.what() << std::endl;
+		std::cerr << PROJECT_NAME << ": " << e.what() << "\n";
 		return EXIT_FAILURE;
 	}
 
 	if (args.count("help")) {
-		std::cout << "Usage:" << std::endl
-		          << "  " << PROJECT_NAME << " [OPTION]..." << std::endl
-		          << std::endl
-		          << options << std::endl
-		          << "Examples:" << std::endl
+		std::cout << "Usage:" << "\n"
+		          << "  " << PROJECT_NAME << " [OPTION]..." << "\n"
+		          << "\n"
+		          << options << "\n"
+		          << "Examples:" << "\n"
 		          << "  " << PROJECT_NAME << " --src-tcp=127.0.0.1:12345 --dst-udp=127.0.0.1:51820"
-		          << std::endl
+		          << "\n"
 		          << "  " << PROJECT_NAME << " --src-udp=127.0.0.1:51821 --dst-tcp=127.0.0.1:12345"
-		          << std::endl;
+		          << "\n";
 		return EXIT_SUCCESS;
 	}
 	if (args.count("version")) {
-		std::cout << PROJECT_NAME << " " << PROJECT_VERSION << std::endl;
+		std::cout << PROJECT_NAME << " " << PROJECT_VERSION << "\n";
 		return EXIT_SUCCESS;
 	}
 
@@ -174,7 +175,7 @@ int main(int argc, char * argv[]) {
 		logging::add_console_log(std::clog, logging::keywords::format = "[%Severity%] %Message%");
 #endif
 
-	int verbose = count_verbose - count_quiet;
+	const int verbose = count_verbose - count_quiet;
 	if (verbose < 0) {
 		logging::core::get()->set_filter(logging::trivial::severity >= logging::trivial::error);
 	} else if (verbose == 0) {
@@ -206,7 +207,7 @@ int main(int argc, char * argv[]) {
 		try {
 			if (ngrok_dst_tcp_endpoint == "list") {
 				for (const auto & ep : ngrok.endpoints())
-					std::cout << ep << std::endl;
+					std::cout << ep << "\n";
 				return EXIT_SUCCESS;
 			} else if (ngrok_dst_tcp_endpoint.substr(0, 3) == "id=") {
 				udp2tcp_dest_provider_ngrok.filter_id(ngrok_dst_tcp_endpoint.substr(3));
@@ -220,7 +221,7 @@ int main(int argc, char * argv[]) {
 				throw std::runtime_error("Invalid NGROK endpoint specification");
 			}
 		} catch (const std::exception & e) {
-			std::cerr << PROJECT_NAME << ": " << e.what() << std::endl;
+			std::cerr << PROJECT_NAME << ": " << e.what() << "\n";
 			return EXIT_FAILURE;
 		}
 	}
@@ -234,14 +235,14 @@ int main(int argc, char * argv[]) {
 		          << "'--src-tcp' && '--dst-udp'"
 		          << " or "
 		          << "'--src-udp' && '--dst-tcp'"
-		          << " must be given" << std::endl;
+		          << " must be given" << "\n";
 		return EXIT_FAILURE;
 	}
 
 #if ENABLE_WEBSOCKET
 	if (websocket_headers.size() > 0 && !websocket) {
 		std::cerr << PROJECT_NAME << ": '--web-socket-header' can be used only with "
-		          << "the WebSocket transport mode enabled" << std::endl;
+		          << "the WebSocket transport mode enabled" << "\n";
 		return EXIT_FAILURE;
 	}
 #endif
@@ -274,7 +275,7 @@ restart:
 	try {
 		ioc.run();
 	} catch (const std::exception & e) {
-		std::cerr << PROJECT_NAME << ": " << e.what() << std::endl;
+		std::cerr << PROJECT_NAME << ": " << e.what() << "\n";
 		goto restart;
 	}
 

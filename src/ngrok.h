@@ -13,20 +13,19 @@
 
 #include <boost/asio.hpp>
 
-namespace wg {
-namespace ngrok {
+namespace wg::ngrok {
 
 namespace asio = boost::asio;
 
 struct endpoint {
 
 	enum class protocol : unsigned char { http, https, tcp, tls };
-	static protocol protocol_from_string(const std::string_view str);
-	static std::string protocol_to_string(const protocol proto);
+	static auto protocol_from_string(const std::string_view str) -> protocol;
+	static auto protocol_to_string(const protocol proto) -> std::string;
 
 	enum class etype : unsigned char { ephemeral, edge };
-	static etype type_from_string(const std::string_view str);
-	static std::string type_to_string(const etype type);
+	static auto type_from_string(const std::string_view str) -> etype;
+	static auto type_to_string(const etype type) -> std::string;
 
 	std::string id;
 	std::time_t created_at;
@@ -36,10 +35,10 @@ struct endpoint {
 	uint16_t port;
 	etype type;
 
-	asio::ip::address address() const;
-	std::string uri() const;
+	[[nodiscard]] auto address() const -> asio::ip::address;
+	[[nodiscard]] auto uri() const -> std::string;
 
-	friend std::ostream & operator<<(std::ostream & os, const endpoint & ep) {
+	friend auto operator<<(std::ostream & os, const endpoint & ep) -> std::ostream & {
 		os << ep.id << ": created-at=" << ep.created_at << " updated-at=" << ep.updated_at
 		   << " type=" << type_to_string(ep.type) << " uri=" << ep.uri();
 		return os;
@@ -51,11 +50,10 @@ public:
 	explicit client(const std::string_view key) : m_key(key) {}
 	~client() = default;
 
-	std::vector<endpoint> endpoints();
+	auto endpoints() -> std::vector<endpoint>;
 
 private:
 	std::string m_key;
 };
 
-} // namespace ngrok
-} // namespace wg
+} // namespace wg::ngrok

@@ -14,8 +14,7 @@
 
 #include "utils.hpp"
 
-namespace wg {
-namespace tunnel {
+namespace wg::tunnel {
 
 namespace asio = boost::asio;
 #if ENABLE_WEBSOCKET
@@ -25,20 +24,22 @@ namespace ws = beast::websocket;
 using namespace std::placeholders;
 #define LOG(lvl) BOOST_LOG_TRIVIAL(lvl) << "tcp2udp::"
 
-void tcp2udp::run(utils::transport transport) {
+auto tcp2udp::run(utils::transport transport) -> void {
 	LOG(info) << "run: " << utils::to_string(m_ep_tcp_acc) << " >> "
 	          << utils::to_string(m_ep_udp_dest);
 	m_transport = transport;
 	do_accept();
 }
 
-void tcp2udp::do_accept() {
+auto tcp2udp::do_accept() -> void {
 	auto socket = std::make_shared<asio::ip::tcp::socket>(m_io_context);
-	auto handler = std::bind(&tcp2udp::do_accept_handler, this, _1, _2);
-	m_tcp_acceptor.async_accept(m_io_context, handler);
+	m_tcp_acceptor.async_accept(m_io_context, [this](const auto & ec, auto && peer) {
+		do_accept_handler(ec, std::forward<decltype(peer)>(peer));
+	});
 }
 
-void tcp2udp::do_accept_handler(const boost::system::error_code & ec, asio::ip::tcp::socket peer) {
+auto tcp2udp::do_accept_handler(const boost::system::error_code & ec, asio::ip::tcp::socket peer)
+    -> void {
 	if (ec) {
 		LOG(error) << "accept [" << utils::to_string(m_ep_tcp_acc) << "]: " << ec.message();
 	} else {
@@ -68,25 +69,26 @@ void tcp2udp::do_accept_handler(const boost::system::error_code & ec, asio::ip::
 	do_accept();
 }
 
-void tcp2udp::tcp::session_raw::run() {
+auto tcp2udp::tcp::session_raw::run() -> void {
 	LOG(info) << "session-raw::run: " << to_string();
 	// Start handling TCP packets
 	do_send_init();
 }
 
-void tcp2udp::tcp::session_raw::do_send_init() {
+auto tcp2udp::tcp::session_raw::do_send_init() -> void {
 	do_send(sizeof(utils::ip::udp::header), true);
 }
 
-void tcp2udp::tcp::session_raw::do_send(size_t rlen, bool ctrl) {
-	auto handler =
-	    std::bind(&tcp2udp::tcp::session_raw::do_send_handler, shared_from_this(), _1, _2, ctrl);
+auto tcp2udp::tcp::session_raw::do_send(size_t rlen, bool ctrl) -> void {
 	m_buffer_send.consume(m_buffer_send.size()); // Clean any previous data
-	asio::async_read(m_socket, m_buffer_send, asio::transfer_exactly(rlen), handler);
+	asio::async_read(m_socket, m_buffer_send, asio::transfer_exactly(rlen),
+	                 [self = shared_from_this(), ctrl](const auto & ec, size_t length) {
+		                 self->do_send_handler(ec, length, ctrl);
+	                 });
 }
 
-void tcp2udp::tcp::session_raw::do_send_handler(const boost::system::error_code & ec,
-                                                size_t length, bool ctrl) {
+auto tcp2udp::tcp::session_raw::do_send_handler(const boost::system::error_code & ec,
+                                                size_t length, bool ctrl) -> void {
 
 	if (ec) {
 		if (ec == asio::error::eof || ec == asio::error::connection_reset) {
@@ -136,14 +138,15 @@ void tcp2udp::tcp::session_raw::do_send_handler(const boost::system::error_code 
 	do_send_init();
 }
 
-void tcp2udp::tcp::session_raw::do_recv() {
-	auto handler =
-	    std::bind(&tcp2udp::tcp::session_raw::do_recv_handler, shared_from_this(), _1, _2);
-	m_socket_udp_dest.async_receive(asio::buffer(m_buffer_recv), handler);
+auto tcp2udp::tcp::session_raw::do_recv() -> void {
+	m_socket_udp_dest.async_receive(asio::buffer(m_buffer_recv),
+	                                [self = shared_from_this()](const auto & ec, size_t length) {
+		                                self->do_recv_handler(ec, length);
+	                                });
 }
 
-void tcp2udp::tcp::session_raw::do_recv_handler(const boost::system::error_code & ec,
-                                                size_t length) {
+auto tcp2udp::tcp::session_raw::do_recv_handler(const boost::system::error_code & ec,
+                                                size_t length) -> void {
 
 	if (ec) {
 		if (ec == asio::error::operation_aborted)
@@ -159,8 +162,8 @@ void tcp2udp::tcp::session_raw::do_recv_handler(const boost::system::error_code 
 	utils::ip::udp::header header(m_socket_udp_dest.remote_endpoint().port(),
 	                              m_socket_udp_dest.local_endpoint().port(),
 	                              static_cast<uint16_t>(length));
-	std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
-		                                     asio::buffer(m_buffer_recv, length) };
+	const std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
+		                                           asio::buffer(m_buffer_recv, length) };
 	m_socket.send(iovec);
 
 	// Handle next UDP packet
@@ -169,7 +172,7 @@ void tcp2udp::tcp::session_raw::do_recv_handler(const boost::system::error_code 
 
 #if ENABLE_WEBSOCKET
 
-void tcp2udp::tcp::session_ws::run() {
+auto tcp2udp::tcp::session_ws::run() -> void {
 	LOG(info) << "session-ws::run: " << to_string();
 	// Ensure that the WebSocket stream will be binary
 	m_ws.binary(true);
@@ -177,7 +180,7 @@ void tcp2udp::tcp::session_ws::run() {
 	do_accept();
 }
 
-void tcp2udp::tcp::session_ws::do_accept() {
+auto tcp2udp::tcp::session_ws::do_accept() -> void {
 	// Set suggested timeout settings for the WebSocket server
 	m_ws.set_option(ws::stream_base::timeout::suggested(beast::role_type::server));
 	// Modify the server handshake response headers
@@ -188,10 +191,10 @@ void tcp2udp::tcp::session_ws::do_accept() {
 			res.insert(key, value);
 	}));
 	m_ws.async_accept(
-	    std::bind(&tcp2udp::tcp::session_ws::do_accept_handler, shared_from_this(), _1));
+	    [self = shared_from_this()](const auto & ec) { self->do_accept_handler(ec); });
 }
 
-void tcp2udp::tcp::session_ws::do_accept_handler(const boost::system::error_code & ec) {
+auto tcp2udp::tcp::session_ws::do_accept_handler(const boost::system::error_code & ec) -> void {
 	if (ec) {
 		LOG(error) << "session-ws::accept [" << to_string() << "]: " << ec.message();
 		return;
@@ -204,14 +207,15 @@ void tcp2udp::tcp::session_ws::do_accept_handler(const boost::system::error_code
 	do_recv();
 }
 
-void tcp2udp::tcp::session_ws::do_send() {
+auto tcp2udp::tcp::session_ws::do_send() -> void {
 	m_buffer_send.clear();
-	m_ws.async_read(m_buffer_send, std::bind(&tcp2udp::tcp::session_ws::do_send_handler,
-	                                         shared_from_this(), _1, _2));
+	m_ws.async_read(m_buffer_send, [self = shared_from_this()](const auto & ec, size_t length) {
+		self->do_send_handler(ec, length);
+	});
 }
 
-void tcp2udp::tcp::session_ws::do_send_handler(const boost::system::error_code & ec,
-                                               size_t length) {
+auto tcp2udp::tcp::session_ws::do_send_handler(const boost::system::error_code & ec, size_t length)
+    -> void {
 
 	if (ec) {
 		if (ec == asio::error::operation_aborted)
@@ -240,14 +244,15 @@ void tcp2udp::tcp::session_ws::do_send_handler(const boost::system::error_code &
 	do_send();
 }
 
-void tcp2udp::tcp::session_ws::do_recv() {
-	m_socket_udp_dest.async_receive(
-	    asio::buffer(m_buffer_recv),
-	    std::bind(&tcp2udp::tcp::session_ws::do_recv_handler, shared_from_this(), _1, _2));
+auto tcp2udp::tcp::session_ws::do_recv() -> void {
+	m_socket_udp_dest.async_receive(asio::buffer(m_buffer_recv),
+	                                [self = shared_from_this()](const auto & ec, size_t length) {
+		                                self->do_recv_handler(ec, length);
+	                                });
 }
 
-void tcp2udp::tcp::session_ws::do_recv_handler(const boost::system::error_code & ec,
-                                               size_t length) {
+auto tcp2udp::tcp::session_ws::do_recv_handler(const boost::system::error_code & ec, size_t length)
+    -> void {
 
 	if (ec) {
 		if (ec == asio::error::operation_aborted)
@@ -267,7 +272,7 @@ void tcp2udp::tcp::session_ws::do_recv_handler(const boost::system::error_code &
 
 #endif
 
-std::string tcp2udp::tcp::session::to_string(bool verbose) {
+auto tcp2udp::tcp::session::to_string(bool verbose) -> std::string {
 	std::string str = utils::to_string(m_socket_ep_remote);
 	if (verbose)
 		str += " -> " + utils::to_string(m_socket.local_endpoint());
@@ -278,5 +283,4 @@ std::string tcp2udp::tcp::session::to_string(bool verbose) {
 	return str;
 }
 
-}; // namespace tunnel
-}; // namespace wg
+}; // namespace wg::tunnel

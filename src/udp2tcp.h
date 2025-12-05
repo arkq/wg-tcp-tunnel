@@ -17,8 +17,7 @@
 #include "ngrok.h"
 #include "utils.hpp"
 
-namespace wg {
-namespace tunnel {
+namespace wg::tunnel {
 
 namespace asio = boost::asio;
 #if ENABLE_WEBSOCKET
@@ -29,7 +28,7 @@ using std::size_t;
 
 class udp2tcp_dest_provider {
 public:
-	virtual asio::ip::tcp::endpoint tcp_dest_ep() = 0;
+	virtual auto tcp_dest_ep() -> asio::ip::tcp::endpoint = 0;
 };
 
 class udp2tcp {
@@ -41,35 +40,35 @@ public:
 	      m_app_keep_alive_timer(ioc) {}
 	~udp2tcp() = default;
 
-	void run(utils::transport transport);
+	auto run(utils::transport transport) -> void;
 
-	void keep_alive_app(unsigned int idle_time) { m_app_keep_alive_idle_time = idle_time; }
-	void keep_alive_tcp(unsigned int idle_time) { m_tcp_keep_alive_idle_time = idle_time; }
+	auto keep_alive_app(int idle_time) -> void { m_app_keep_alive_idle_time = idle_time; }
+	auto keep_alive_tcp(int idle_time) -> void { m_tcp_keep_alive_idle_time = idle_time; }
 #if ENABLE_WEBSOCKET
-	void ws_headers(utils::http::headers headers) { m_ws_headers = std::move(headers); }
+	auto ws_headers(utils::http::headers headers) { m_ws_headers = std::move(headers); }
 #endif
 
 private:
-	std::string to_string(bool verbose = false);
+	auto to_string(bool verbose = false) -> std::string;
 
-	void do_connect();
-	void do_connect_handler(const boost::system::error_code & ec);
+	auto do_connect() -> void;
+	auto do_connect_handler(const boost::system::error_code & ec) -> void;
 
-	void do_app_keep_alive_init();
-	void do_app_keep_alive(bool init = false);
-	void do_app_keep_alive_handler(const boost::system::error_code & ec);
+	auto do_app_keep_alive_init() -> void;
+	auto do_app_keep_alive(bool init = false) -> void;
+	auto do_app_keep_alive_handler(const boost::system::error_code & ec) -> void;
 
-	void do_send();
-	void do_send_buffer();
-	void do_send_handler(const boost::system::error_code & ec, size_t length);
+	auto do_send() -> void;
+	auto do_send_buffer() -> void;
+	auto do_send_handler(const boost::system::error_code & ec, size_t length) -> void;
 
-	void do_recv_init();
-	void do_recv(size_t rlen, bool ctrl = false);
-	void do_recv_handler(const boost::system::error_code & ec, size_t length, bool ctrl);
+	auto do_recv_init() -> void;
+	auto do_recv(size_t rlen, bool ctrl = false) -> void;
+	auto do_recv_handler(const boost::system::error_code & ec, size_t length, bool ctrl) -> void;
 
 #if ENABLE_WEBSOCKET
-	void do_ws_recv();
-	void do_ws_recv_handler(const boost::system::error_code & ec, size_t length);
+	auto do_ws_recv() -> void;
+	auto do_ws_recv_handler(const boost::system::error_code & ec, size_t length) -> void;
 #endif
 
 	asio::ip::udp::endpoint m_ep_udp_acc;
@@ -82,10 +81,10 @@ private:
 	// Transport protocol used for the TCP connection
 	utils::transport m_transport = utils::transport::raw;
 	// Application keep-alive idle time in seconds, 0 to disable
-	unsigned int m_app_keep_alive_idle_time = 0;
+	int m_app_keep_alive_idle_time = 0;
 	asio::deadline_timer m_app_keep_alive_timer;
 	// TCP keep-alive idle time in seconds, 0 to disable
-	unsigned int m_tcp_keep_alive_idle_time = 0;
+	int m_tcp_keep_alive_idle_time = 0;
 	// Buffers for sending and receiving data
 	std::array<char, 4096> m_buffer_send;
 	size_t m_buffer_send_length;
@@ -101,7 +100,7 @@ private:
 class udp2tcp_dest_provider_simple : virtual public udp2tcp_dest_provider {
 public:
 	udp2tcp_dest_provider_simple(asio::ip::tcp::endpoint ep) : m_ep(std::move(ep)) {}
-	asio::ip::tcp::endpoint tcp_dest_ep() override { return m_ep; }
+	auto tcp_dest_ep() -> asio::ip::tcp::endpoint override { return m_ep; }
 
 private:
 	asio::ip::tcp::endpoint m_ep;
@@ -111,10 +110,10 @@ private:
 class udp2tcp_dest_provider_ngrok : virtual public udp2tcp_dest_provider {
 public:
 	udp2tcp_dest_provider_ngrok(wg::ngrok::client & client) : m_client(client) {}
-	asio::ip::tcp::endpoint tcp_dest_ep() override;
+	auto tcp_dest_ep() -> asio::ip::tcp::endpoint override;
 
-	void filter_id(const std::string_view id) { m_endpoint_filter_id = id; }
-	void filter_uri(const std::string_view uri) { m_endpoint_filter_uri = uri; }
+	auto filter_id(const std::string_view id) -> void { m_endpoint_filter_id = id; }
+	auto filter_uri(const std::string_view uri) -> void { m_endpoint_filter_uri = uri; }
 
 private:
 	wg::ngrok::client & m_client;
@@ -123,5 +122,4 @@ private:
 };
 #endif
 
-}; // namespace tunnel
-}; // namespace wg
+}; // namespace wg::tunnel

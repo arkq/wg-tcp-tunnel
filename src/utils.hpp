@@ -14,8 +14,7 @@
 #include <boost/asio.hpp>
 #include <boost/crc.hpp>
 
-namespace wg {
-namespace utils {
+namespace wg::utils {
 
 namespace asio = boost::asio;
 
@@ -38,7 +37,7 @@ struct header {
 		m_crc16 = crc16.checksum();
 	}
 
-	bool valid() const {
+	[[nodiscard]] auto valid() const -> bool {
 		boost::crc_16_type crc16;
 		crc16.process_bytes(this, sizeof(*this) - sizeof(m_crc16));
 		return crc16.checksum() == m_crc16;
@@ -61,7 +60,7 @@ namespace http {
 using header = std::pair<std::string, std::string>;
 using headers = std::vector<header>;
 
-static inline header split_header(const std::string_view str) {
+static inline auto split_header(const std::string_view str) -> header {
 	auto pos = str.find_first_of(':');
 	if (pos == std::string::npos)
 		throw std::runtime_error("Unable to split HTTP header");
@@ -72,26 +71,26 @@ static inline header split_header(const std::string_view str) {
 
 }; // namespace http
 
-static inline std::pair<std::string, uint16_t> split_host_port(const std::string_view str) {
+static inline auto split_host_port(const std::string_view str)
+    -> std::pair<std::string, uint16_t> {
 	auto pos = str.find_last_of(':');
 	if (pos == std::string::npos)
 		throw std::runtime_error("Unable to split host and port");
 	return { std::string(str.substr(0, pos)), std::stoi(std::string(str.substr(pos + 1))) };
 }
 
-static inline std::string to_string(const asio::ip::tcp::endpoint & ep) {
+static inline auto to_string(const asio::ip::tcp::endpoint & ep) -> std::string {
 	return "tcp:" + ep.address().to_string() + ":" + std::to_string(ep.port());
 }
 
-static inline std::string to_string(const asio::ip::udp::endpoint & ep) {
+static inline auto to_string(const asio::ip::udp::endpoint & ep) -> std::string {
 	return "udp:" + ep.address().to_string() + ":" + std::to_string(ep.port());
 }
 
-static inline int socket_set_keep_alive_idle(asio::ip::tcp::socket & socket, int time) {
+static inline auto socket_set_keep_alive_idle(asio::ip::tcp::socket & socket, int time) -> int {
 	boost::system::error_code ec;
 	socket.set_option(asio::detail::socket_option::integer<IPPROTO_TCP, TCP_KEEPIDLE>(time), ec);
 	return ec.value();
 }
 
-} // namespace utils
-} // namespace wg
+} // namespace wg::utils

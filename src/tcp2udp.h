@@ -17,8 +17,7 @@
 
 #include "utils.hpp"
 
-namespace wg {
-namespace tunnel {
+namespace wg::tunnel {
 
 namespace asio = boost::asio;
 #if ENABLE_WEBSOCKET
@@ -35,12 +34,12 @@ public:
 	      m_ep_udp_dest(std::move(ep_udp_dest)), m_tcp_acceptor(ioc, m_ep_tcp_acc) {}
 	~tcp2udp() = default;
 
-	void run(utils::transport transport);
+	auto run(utils::transport transport) -> void;
 
-	void keep_alive_app(unsigned int idle_time) { m_app_keep_alive_idle_time = idle_time; }
-	void keep_alive_tcp(unsigned int idle_time) { m_tcp_keep_alive_idle_time = idle_time; }
+	auto keep_alive_app(int idle_time) -> void { m_app_keep_alive_idle_time = idle_time; }
+	auto keep_alive_tcp(int idle_time) -> void { m_tcp_keep_alive_idle_time = idle_time; }
 #if ENABLE_WEBSOCKET
-	void ws_headers(utils::http::headers headers) { m_ws_headers = std::move(headers); }
+	auto ws_headers(utils::http::headers headers) { m_ws_headers = std::move(headers); }
 #endif
 
 private:
@@ -54,7 +53,7 @@ private:
 			}
 
 		protected:
-			std::string to_string(bool verbose = false);
+			auto to_string(bool verbose = false) -> std::string;
 
 			asio::ip::tcp::socket m_socket;
 			asio::ip::udp::socket m_socket_udp_dest;
@@ -68,15 +67,16 @@ private:
 			session_raw(tcp2udp & tcp2udp, asio::ip::tcp::socket socket)
 			    : session(tcp2udp, std::move(socket)) {}
 
-			void run();
+			auto run() -> void;
 
 		private:
-			void do_send_init();
-			void do_send(size_t rlen, bool ctrl = false);
-			void do_send_handler(const boost::system::error_code & ec, size_t length, bool ctrl);
+			auto do_send_init() -> void;
+			auto do_send(size_t rlen, bool ctrl = false) -> void;
+			auto do_send_handler(const boost::system::error_code & ec, size_t length, bool ctrl)
+			    -> void;
 
-			void do_recv();
-			void do_recv_handler(const boost::system::error_code & ec, size_t length);
+			auto do_recv() -> void;
+			auto do_recv_handler(const boost::system::error_code & ec, size_t length) -> void;
 
 			asio::streambuf m_buffer_send;
 			std::array<char, 4096> m_buffer_recv;
@@ -90,17 +90,17 @@ private:
 			    : session(tcp2udp, std::move(socket)), m_ws(m_socket),
 			      m_ws_headers(tcp2udp.m_ws_headers) {}
 
-			void run();
+			auto run() -> void;
 
 		private:
-			void do_accept();
-			void do_accept_handler(const boost::system::error_code & ec);
+			auto do_accept() -> void;
+			auto do_accept_handler(const boost::system::error_code & ec) -> void;
 
-			void do_send();
-			void do_send_handler(const boost::system::error_code & ec, size_t length);
+			auto do_send() -> void;
+			auto do_send_handler(const boost::system::error_code & ec, size_t length) -> void;
 
-			void do_recv();
-			void do_recv_handler(const boost::system::error_code & ec, size_t length);
+			auto do_recv() -> void;
+			auto do_recv_handler(const boost::system::error_code & ec, size_t length) -> void;
 
 			ws::stream<asio::ip::tcp::socket &> m_ws;
 			utils::http::headers & m_ws_headers;
@@ -110,8 +110,9 @@ private:
 #endif
 	};
 
-	void do_accept();
-	void do_accept_handler(const boost::system::error_code & ec, asio::ip::tcp::socket peer);
+	auto do_accept() -> void;
+	auto do_accept_handler(const boost::system::error_code & ec, asio::ip::tcp::socket peer)
+	    -> void;
 
 	asio::io_context & m_io_context;
 	asio::ip::tcp::endpoint m_ep_tcp_acc;
@@ -120,14 +121,13 @@ private:
 	// Transport protocol used for the TCP connection
 	utils::transport m_transport = utils::transport::raw;
 	// Application keep-alive idle time in seconds, 0 to disable
-	unsigned int m_app_keep_alive_idle_time = 0;
+	int m_app_keep_alive_idle_time = 0;
 	// TCP keep-alive idle time in seconds, 0 to disable
-	unsigned int m_tcp_keep_alive_idle_time = 0;
+	int m_tcp_keep_alive_idle_time = 0;
 #if ENABLE_WEBSOCKET
 	// List of WebSocket custom headers used during the handshake
 	utils::http::headers m_ws_headers;
 #endif
 };
 
-}; // namespace tunnel
-}; // namespace wg
+}; // namespace wg::tunnel

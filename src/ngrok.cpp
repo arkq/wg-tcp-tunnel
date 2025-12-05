@@ -18,12 +18,10 @@
 
 #include "utils.hpp"
 
-namespace wg {
-namespace ngrok {
+namespace wg::ngrok {
 
 namespace asio = boost::asio;
 namespace http = boost::beast::http;
-namespace pt = boost::property_tree;
 namespace time = boost::posix_time;
 
 #define LOG(lvl) BOOST_LOG_TRIVIAL(lvl) << "ngrok::"
@@ -33,7 +31,7 @@ constexpr const char * host = "api.ngrok.com";
 constexpr const char * port = "443";
 } // namespace api
 
-endpoint::protocol endpoint::protocol_from_string(const std::string_view str) {
+auto endpoint::protocol_from_string(const std::string_view str) -> protocol {
 	if (str == "http")
 		return protocol::http;
 	if (str == "https")
@@ -45,7 +43,7 @@ endpoint::protocol endpoint::protocol_from_string(const std::string_view str) {
 	throw std::runtime_error("Unknown endpoint protocol: " + std::string(str));
 }
 
-std::string endpoint::protocol_to_string(const endpoint::protocol proto) {
+auto endpoint::protocol_to_string(const endpoint::protocol proto) -> std::string {
 	switch (proto) {
 	case protocol::http:
 		return "http";
@@ -60,7 +58,7 @@ std::string endpoint::protocol_to_string(const endpoint::protocol proto) {
 	}
 }
 
-endpoint::etype endpoint::type_from_string(const std::string_view str) {
+auto endpoint::type_from_string(const std::string_view str) -> etype {
 	if (str == "ephemeral")
 		return etype::ephemeral;
 	if (str == "edge")
@@ -68,7 +66,7 @@ endpoint::etype endpoint::type_from_string(const std::string_view str) {
 	throw std::runtime_error("Unknown endpoint type: " + std::string(str));
 }
 
-std::string endpoint::type_to_string(const endpoint::etype type) {
+auto endpoint::type_to_string(const endpoint::etype type) -> std::string {
 	switch (type) {
 	case etype::ephemeral:
 		return "ephemeral";
@@ -79,19 +77,19 @@ std::string endpoint::type_to_string(const endpoint::etype type) {
 	}
 }
 
-asio::ip::address endpoint::address() const {
+auto endpoint::address() const -> asio::ip::address {
 	asio::io_context ioc;
 	asio::ip::tcp::resolver resolver(ioc);
 	for (auto & ep : resolver.resolve(host, std::to_string(port)))
 		return ep.endpoint().address();
-	return asio::ip::address();
+	return {};
 }
 
-std::string endpoint::uri() const {
+auto endpoint::uri() const -> std::string {
 	return protocol_to_string(proto) + "://" + host + ":" + std::to_string(port);
 }
 
-std::vector<endpoint> client::endpoints() {
+auto client::endpoints() -> std::vector<endpoint> {
 
 	if (m_key.empty())
 		throw std::runtime_error("NGROK API key is not set");
@@ -150,5 +148,4 @@ std::vector<endpoint> client::endpoints() {
 	return endpoints;
 }
 
-} // namespace ngrok
-} // namespace wg
+} // namespace wg::ngrok

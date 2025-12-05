@@ -16,8 +16,7 @@
 
 #include "utils.hpp"
 
-namespace wg {
-namespace tunnel {
+namespace wg::tunnel {
 
 namespace asio = boost::asio;
 #if ENABLE_WEBSOCKET
@@ -27,7 +26,7 @@ namespace ws = beast::websocket;
 using namespace std::placeholders;
 #define LOG(lvl) BOOST_LOG_TRIVIAL(lvl) << "udp2tcp::"
 
-void udp2tcp::run(utils::transport transport) {
+auto udp2tcp::run(utils::transport transport) -> void {
 	m_ep_tcp_dest_cache = asio::ip::tcp::endpoint();
 	LOG(info) << "run: " << utils::to_string(m_ep_udp_acc) << " >> "
 	          << utils::to_string(m_ep_tcp_dest_cache);
@@ -39,7 +38,7 @@ void udp2tcp::run(utils::transport transport) {
 	do_send();
 }
 
-std::string udp2tcp::to_string(bool verbose) {
+auto udp2tcp::to_string(bool verbose) -> std::string {
 	std::string str = utils::to_string(m_ep_udp_sender);
 	if (verbose)
 		str += " -> " + utils::to_string(m_ep_udp_acc);
@@ -50,11 +49,10 @@ std::string udp2tcp::to_string(bool verbose) {
 	return str;
 }
 
-void udp2tcp::do_connect() {
+auto udp2tcp::do_connect() -> void {
 	try {
-		auto handler = std::bind(&udp2tcp::do_connect_handler, this, _1);
 		m_socket_tcp_dest.async_connect(m_ep_tcp_dest_cache = m_ep_tcp_dest_provider.tcp_dest_ep(),
-		                                handler);
+		                                [this](const auto & ec) { do_connect_handler(ec); });
 	} catch (const std::exception & e) {
 		LOG(error) << "connect: Get destination TCP endpoint: " << e.what();
 		// Handle next UDP packet
@@ -62,7 +60,7 @@ void udp2tcp::do_connect() {
 	}
 }
 
-void udp2tcp::do_connect_handler(const boost::system::error_code & ec) {
+auto udp2tcp::do_connect_handler(const boost::system::error_code & ec) -> void {
 
 	if (ec) {
 		LOG(error) << "connect [" << utils::to_string(m_ep_tcp_dest_cache)
@@ -110,11 +108,11 @@ void udp2tcp::do_connect_handler(const boost::system::error_code & ec) {
 	do_recv_init();
 }
 
-void udp2tcp::do_app_keep_alive_init() {
+auto udp2tcp::do_app_keep_alive_init() -> void {
 	do_app_keep_alive(true);
 }
 
-void udp2tcp::do_app_keep_alive(bool init) {
+auto udp2tcp::do_app_keep_alive(bool init) -> void {
 
 	// This call is a no-op if keep-alive is disabled
 	if (m_app_keep_alive_idle_time == 0)
@@ -126,11 +124,10 @@ void udp2tcp::do_app_keep_alive(bool init) {
 		return;
 
 	LOG(trace) << "app-keepalive [" << to_string() << "]: idle=" << m_app_keep_alive_idle_time;
-	auto handler = std::bind(&udp2tcp::do_app_keep_alive_handler, this, _1);
-	m_app_keep_alive_timer.async_wait(handler);
+	m_app_keep_alive_timer.async_wait([this](const auto & ec) { do_app_keep_alive_handler(ec); });
 }
 
-void udp2tcp::do_app_keep_alive_handler(const boost::system::error_code & ec) {
+auto udp2tcp::do_app_keep_alive_handler(const boost::system::error_code & ec) -> void {
 
 	if (ec) {
 		if (ec == asio::error::operation_aborted)
@@ -149,21 +146,22 @@ void udp2tcp::do_app_keep_alive_handler(const boost::system::error_code & ec) {
 	do_app_keep_alive_init();
 }
 
-void udp2tcp::do_send() {
-	auto handler = std::bind(&udp2tcp::do_send_handler, this, _1, _2);
-	m_socket_udp_acc.async_receive_from(asio::buffer(m_buffer_send), m_ep_udp_sender, handler);
+auto udp2tcp::do_send() -> void {
+	m_socket_udp_acc.async_receive_from(
+	    asio::buffer(m_buffer_send), m_ep_udp_sender,
+	    [this](const auto & ec, size_t length) { do_send_handler(ec, length); });
 }
 
-void udp2tcp::do_send_buffer() {
+auto udp2tcp::do_send_buffer() -> void {
 	LOG(trace) << "send [" << to_string(true) << "]: len=" << m_buffer_send_length;
 	switch (m_transport) {
 	case utils::transport::raw: {
 		// Send payload with attached UDP header
 		utils::ip::udp::header header(m_ep_udp_sender.port(), m_ep_udp_acc.port(),
 		                              static_cast<uint16_t>(m_buffer_send_length));
-		std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
-			                                     asio::buffer(m_buffer_send,
-			                                                  m_buffer_send_length) };
+		const std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
+			                                           asio::buffer(m_buffer_send,
+			                                                        m_buffer_send_length) };
 		m_socket_tcp_dest.send(iovec);
 	} break;
 #if ENABLE_WEBSOCKET
@@ -174,7 +172,7 @@ void udp2tcp::do_send_buffer() {
 	}
 }
 
-void udp2tcp::do_send_handler(const boost::system::error_code & ec, size_t length) {
+auto udp2tcp::do_send_handler(const boost::system::error_code & ec, size_t length) -> void {
 
 	if (ec) {
 		LOG(error) << "send [" << to_string() << "]: " << ec.message();
@@ -198,7 +196,7 @@ void udp2tcp::do_send_handler(const boost::system::error_code & ec, size_t lengt
 	do_send();
 }
 
-void udp2tcp::do_recv_init() {
+auto udp2tcp::do_recv_init() -> void {
 	switch (m_transport) {
 	case utils::transport::raw:
 		do_recv(sizeof(utils::ip::udp::header), true);
@@ -211,13 +209,15 @@ void udp2tcp::do_recv_init() {
 	}
 }
 
-void udp2tcp::do_recv(std::size_t rlen, bool ctrl) {
-	auto handler = std::bind(&udp2tcp::do_recv_handler, this, _1, _2, ctrl);
+auto udp2tcp::do_recv(std::size_t rlen, bool ctrl) -> void {
 	m_buffer_recv.consume(m_buffer_recv.size()); // Clear any previous data
-	asio::async_read(m_socket_tcp_dest, m_buffer_recv, asio::transfer_exactly(rlen), handler);
+	asio::async_read(
+	    m_socket_tcp_dest, m_buffer_recv, asio::transfer_exactly(rlen),
+	    [this, ctrl](const auto & ec, size_t length) { do_recv_handler(ec, length, ctrl); });
 }
 
-void udp2tcp::do_recv_handler(const boost::system::error_code & ec, size_t length, bool ctrl) {
+auto udp2tcp::do_recv_handler(const boost::system::error_code & ec, size_t length, bool ctrl)
+    -> void {
 
 	if (ec) {
 		if (ec == asio::error::operation_aborted)
@@ -269,13 +269,13 @@ void udp2tcp::do_recv_handler(const boost::system::error_code & ec, size_t lengt
 
 #if ENABLE_WEBSOCKET
 
-void udp2tcp::do_ws_recv() {
+auto udp2tcp::do_ws_recv() -> void {
 	m_ws_buffer_recv.clear();
-	auto handler = std::bind(&udp2tcp::do_ws_recv_handler, this, _1, _2);
-	m_ws.async_read(m_ws_buffer_recv, handler);
+	m_ws.async_read(m_ws_buffer_recv,
+	                [this](const auto & ec, size_t length) { do_ws_recv_handler(ec, length); });
 }
 
-void udp2tcp::do_ws_recv_handler(const boost::system::error_code & ec, size_t length) {
+auto udp2tcp::do_ws_recv_handler(const boost::system::error_code & ec, size_t length) -> void {
 
 	if (ec) {
 		if (ec == asio::error::operation_aborted)
@@ -305,12 +305,12 @@ void udp2tcp::do_ws_recv_handler(const boost::system::error_code & ec, size_t le
 #endif
 
 #if ENABLE_NGROK
-asio::ip::tcp::endpoint udp2tcp_dest_provider_ngrok::tcp_dest_ep() {
+auto udp2tcp_dest_provider_ngrok::tcp_dest_ep() -> asio::ip::tcp::endpoint {
 	if (!m_endpoint_filter_id.empty()) {
 		LOG(debug) << "tcp-provider-ngrok: id=" << m_endpoint_filter_id;
 		for (const auto & ep : m_client.endpoints())
 			if (ep.id == m_endpoint_filter_id)
-				return asio::ip::tcp::endpoint(ep.address(), ep.port);
+				return { ep.address(), ep.port };
 		throw std::runtime_error("Endpoint '" + m_endpoint_filter_id + "' not found");
 	}
 	if (!m_endpoint_filter_uri.empty()) {
@@ -318,12 +318,11 @@ asio::ip::tcp::endpoint udp2tcp_dest_provider_ngrok::tcp_dest_ep() {
 		auto regex = std::regex(m_endpoint_filter_uri, std::regex::icase);
 		for (const auto & ep : m_client.endpoints())
 			if (std::regex_match(ep.uri(), regex))
-				return asio::ip::tcp::endpoint(ep.address(), ep.port);
+				return { ep.address(), ep.port };
 		throw std::runtime_error("Endpoint matching '" + m_endpoint_filter_uri + "' not found");
 	}
 	throw std::runtime_error("Endpoint filter not set");
 }
 #endif
 
-}; // namespace tunnel
-}; // namespace wg
+}; // namespace wg::tunnel
