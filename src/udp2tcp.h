@@ -82,7 +82,7 @@ private:
 	utils::transport m_transport = utils::transport::raw;
 	// Application keep-alive idle time in seconds, 0 to disable
 	int m_app_keep_alive_idle_time = 0;
-	asio::deadline_timer m_app_keep_alive_timer;
+	asio::system_timer m_app_keep_alive_timer;
 	// TCP keep-alive idle time in seconds, 0 to disable
 	int m_tcp_keep_alive_idle_time = 0;
 	// Buffers for sending and receiving data

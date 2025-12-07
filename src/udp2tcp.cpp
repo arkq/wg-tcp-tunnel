@@ -5,6 +5,7 @@
 #include "udp2tcp.h"
 
 #include <array>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <regex>
@@ -118,9 +119,9 @@ auto udp2tcp::do_app_keep_alive(bool init) -> void {
 	if (m_app_keep_alive_idle_time == 0)
 		return;
 
-	auto time = boost::posix_time::seconds(m_app_keep_alive_idle_time);
+	auto time = std::chrono::seconds(m_app_keep_alive_idle_time);
 	// Set or update timer and check whether the previous handler was cancelled
-	if (m_app_keep_alive_timer.expires_from_now(time) == 0 && !init)
+	if (m_app_keep_alive_timer.expires_after(time) == 0 && !init)
 		return;
 
 	LOG(trace) << "app-keepalive [" << to_string() << "]: idle=" << m_app_keep_alive_idle_time;
