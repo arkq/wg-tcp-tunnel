@@ -45,7 +45,7 @@ jobs:
         boost-log
         boost-program-options
         boost-property-tree
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - name: Configure Project (Ubuntu)
       if: runner.os == 'Linux'
       env:
