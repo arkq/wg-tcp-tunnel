@@ -1,5 +1,5 @@
 // wg-tcp-tunnel - utils.hpp
-// SPDX-FileCopyrightText: 2023-2025 Arkadiusz Bokowy and contributors
+// SPDX-FileCopyrightText: 2023-2026 Arkadiusz Bokowy and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -18,7 +18,7 @@ namespace wg::utils {
 
 namespace asio = boost::asio;
 
-enum class transport {
+enum class transport : unsigned char {
 	raw,
 #if ENABLE_WEBSOCKET
 	websocket,

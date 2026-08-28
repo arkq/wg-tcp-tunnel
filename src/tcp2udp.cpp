@@ -1,5 +1,5 @@
 // wg-tcp-tunnel - tcp2udp.cpp
-// SPDX-FileCopyrightText: 2023-2025 Arkadiusz Bokowy and contributors
+// SPDX-FileCopyrightText: 2023-2026 Arkadiusz Bokowy and contributors
 // SPDX-License-Identifier: MIT
 
 #include "tcp2udp.h"
@@ -33,7 +33,7 @@ auto tcp2udp::run(utils::transport transport) -> void {
 
 auto tcp2udp::do_accept() -> void {
 	auto socket = std::make_shared<asio::ip::tcp::socket>(m_io_context);
-	m_tcp_acceptor.async_accept(m_io_context, [this](const auto & ec, auto && peer) {
+	m_tcp_acceptor.async_accept(m_io_context, [this](const auto & ec, auto && peer) -> void {
 		do_accept_handler(ec, std::forward<decltype(peer)>(peer));
 	});
 }
@@ -82,7 +82,7 @@ auto tcp2udp::tcp::session_raw::do_send_init() -> void {
 auto tcp2udp::tcp::session_raw::do_send(size_t rlen, bool ctrl) -> void {
 	m_buffer_send.consume(m_buffer_send.size()); // Clean any previous data
 	asio::async_read(m_socket, m_buffer_send, asio::transfer_exactly(rlen),
-	                 [self = shared_from_this(), ctrl](const auto & ec, size_t length) {
+	                 [self = shared_from_this(), ctrl](const auto & ec, size_t length) -> void {
 		                 self->do_send_handler(ec, length, ctrl);
 	                 });
 }
@@ -107,7 +107,7 @@ auto tcp2udp::tcp::session_raw::do_send_handler(const boost::system::error_code 
 	LOG(trace) << "session-raw::send [" << to_string(true) << "]: len=" << length;
 
 	if (ctrl) {
-		auto header =
+		const auto * header =
 		    reinterpret_cast<const utils::ip::udp::header *>(m_buffer_send.data().data());
 		if (!header->valid()) {
 			LOG(warning) << "session-raw::send [" << to_string() << "]: Invalid UDP header";
@@ -139,10 +139,11 @@ auto tcp2udp::tcp::session_raw::do_send_handler(const boost::system::error_code 
 }
 
 auto tcp2udp::tcp::session_raw::do_recv() -> void {
-	m_socket_udp_dest.async_receive(asio::buffer(m_buffer_recv),
-	                                [self = shared_from_this()](const auto & ec, size_t length) {
-		                                self->do_recv_handler(ec, length);
-	                                });
+	m_socket_udp_dest.async_receive(
+	    asio::buffer(m_buffer_recv),
+	    [self = shared_from_this()](const auto & ec, size_t length) -> void {
+		    self->do_recv_handler(ec, length);
+	    });
 }
 
 auto tcp2udp::tcp::session_raw::do_recv_handler(const boost::system::error_code & ec,
@@ -184,14 +185,14 @@ auto tcp2udp::tcp::session_ws::do_accept() -> void {
 	// Set suggested timeout settings for the WebSocket server
 	m_ws.set_option(ws::stream_base::timeout::suggested(beast::role_type::server));
 	// Modify the server handshake response headers
-	m_ws.set_option(ws::stream_base::decorator([&](ws::response_type & res) {
+	m_ws.set_option(ws::stream_base::decorator([&](ws::response_type & res) -> void {
 		LOG(debug) << "session-ws::accept: Sending response: peer="
 		           << utils::to_string(m_socket_ep_remote);
 		for (const auto & [key, value] : m_ws_headers)
 			res.insert(key, value);
 	}));
 	m_ws.async_accept(
-	    [self = shared_from_this()](const auto & ec) { self->do_accept_handler(ec); });
+	    [self = shared_from_this()](const auto & ec) -> void { self->do_accept_handler(ec); });
 }
 
 auto tcp2udp::tcp::session_ws::do_accept_handler(const boost::system::error_code & ec) -> void {
@@ -209,9 +210,10 @@ auto tcp2udp::tcp::session_ws::do_accept_handler(const boost::system::error_code
 
 auto tcp2udp::tcp::session_ws::do_send() -> void {
 	m_buffer_send.clear();
-	m_ws.async_read(m_buffer_send, [self = shared_from_this()](const auto & ec, size_t length) {
-		self->do_send_handler(ec, length);
-	});
+	m_ws.async_read(m_buffer_send,
+	                [self = shared_from_this()](const auto & ec, size_t length) -> void {
+		                self->do_send_handler(ec, length);
+	                });
 }
 
 auto tcp2udp::tcp::session_ws::do_send_handler(const boost::system::error_code & ec, size_t length)
@@ -245,10 +247,11 @@ auto tcp2udp::tcp::session_ws::do_send_handler(const boost::system::error_code &
 }
 
 auto tcp2udp::tcp::session_ws::do_recv() -> void {
-	m_socket_udp_dest.async_receive(asio::buffer(m_buffer_recv),
-	                                [self = shared_from_this()](const auto & ec, size_t length) {
-		                                self->do_recv_handler(ec, length);
-	                                });
+	m_socket_udp_dest.async_receive(
+	    asio::buffer(m_buffer_recv),
+	    [self = shared_from_this()](const auto & ec, size_t length) -> void {
+		    self->do_recv_handler(ec, length);
+	    });
 }
 
 auto tcp2udp::tcp::session_ws::do_recv_handler(const boost::system::error_code & ec, size_t length)

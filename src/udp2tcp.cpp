@@ -1,5 +1,5 @@
 // wg-tcp-tunnel - udp2tcp.cpp
-// SPDX-FileCopyrightText: 2023-2025 Arkadiusz Bokowy and contributors
+// SPDX-FileCopyrightText: 2023-2026 Arkadiusz Bokowy and contributors
 // SPDX-License-Identifier: MIT
 
 #include "udp2tcp.h"
@@ -52,8 +52,9 @@ auto udp2tcp::to_string(bool verbose) -> std::string {
 
 auto udp2tcp::do_connect() -> void {
 	try {
-		m_socket_tcp_dest.async_connect(m_ep_tcp_dest_cache = m_ep_tcp_dest_provider.tcp_dest_ep(),
-		                                [this](const auto & ec) { do_connect_handler(ec); });
+		m_socket_tcp_dest.async_connect(
+		    m_ep_tcp_dest_cache = m_ep_tcp_dest_provider.tcp_dest_ep(),
+		    [this](const auto & ec) -> void { do_connect_handler(ec); });
 	} catch (const std::exception & e) {
 		LOG(error) << "connect: Get destination TCP endpoint: " << e.what();
 		// Handle next UDP packet
@@ -87,7 +88,7 @@ auto udp2tcp::do_connect_handler(const boost::system::error_code & ec) -> void {
 		// Set suggested timeout settings for the websocket client
 		m_ws.set_option(ws::stream_base::timeout::suggested(beast::role_type::client));
 		// Modify the client handshake request headers
-		m_ws.set_option(ws::stream_base::decorator([&](ws::request_type & req) {
+		m_ws.set_option(ws::stream_base::decorator([&](ws::request_type & req) -> void {
 			for (const auto & [key, value] : m_ws_headers)
 				req.set(key, value);
 		}));
@@ -125,7 +126,8 @@ auto udp2tcp::do_app_keep_alive(bool init) -> void {
 		return;
 
 	LOG(trace) << "app-keepalive [" << to_string() << "]: idle=" << m_app_keep_alive_idle_time;
-	m_app_keep_alive_timer.async_wait([this](const auto & ec) { do_app_keep_alive_handler(ec); });
+	m_app_keep_alive_timer.async_wait(
+	    [this](const auto & ec) -> void { do_app_keep_alive_handler(ec); });
 }
 
 auto udp2tcp::do_app_keep_alive_handler(const boost::system::error_code & ec) -> void {
@@ -150,7 +152,7 @@ auto udp2tcp::do_app_keep_alive_handler(const boost::system::error_code & ec) ->
 auto udp2tcp::do_send() -> void {
 	m_socket_udp_acc.async_receive_from(
 	    asio::buffer(m_buffer_send), m_ep_udp_sender,
-	    [this](const auto & ec, size_t length) { do_send_handler(ec, length); });
+	    [this](const auto & ec, size_t length) -> void { do_send_handler(ec, length); });
 }
 
 auto udp2tcp::do_send_buffer() -> void {
@@ -212,9 +214,10 @@ auto udp2tcp::do_recv_init() -> void {
 
 auto udp2tcp::do_recv(std::size_t rlen, bool ctrl) -> void {
 	m_buffer_recv.consume(m_buffer_recv.size()); // Clear any previous data
-	asio::async_read(
-	    m_socket_tcp_dest, m_buffer_recv, asio::transfer_exactly(rlen),
-	    [this, ctrl](const auto & ec, size_t length) { do_recv_handler(ec, length, ctrl); });
+	asio::async_read(m_socket_tcp_dest, m_buffer_recv, asio::transfer_exactly(rlen),
+	                 [this, ctrl](const auto & ec, size_t length) -> void {
+		                 do_recv_handler(ec, length, ctrl);
+	                 });
 }
 
 auto udp2tcp::do_recv_handler(const boost::system::error_code & ec, size_t length, bool ctrl)
@@ -240,7 +243,7 @@ auto udp2tcp::do_recv_handler(const boost::system::error_code & ec, size_t lengt
 	LOG(trace) << "recv [" << to_string(true) << "]: len=" << length;
 
 	if (ctrl) {
-		auto header =
+		const auto * header =
 		    reinterpret_cast<const utils::ip::udp::header *>(m_buffer_recv.data().data());
 		if (!header->valid()) {
 			LOG(warning) << "recv [" << to_string() << "]: Invalid UDP header";
@@ -272,8 +275,9 @@ auto udp2tcp::do_recv_handler(const boost::system::error_code & ec, size_t lengt
 
 auto udp2tcp::do_ws_recv() -> void {
 	m_ws_buffer_recv.clear();
-	m_ws.async_read(m_ws_buffer_recv,
-	                [this](const auto & ec, size_t length) { do_ws_recv_handler(ec, length); });
+	m_ws.async_read(m_ws_buffer_recv, [this](const auto & ec, size_t length) -> void {
+		do_ws_recv_handler(ec, length);
+	});
 }
 
 auto udp2tcp::do_ws_recv_handler(const boost::system::error_code & ec, size_t length) -> void {

@@ -1,9 +1,11 @@
-# SPDX-FileCopyrightText: 2025 Arkadiusz Bokowy and contributors
+# SPDX-FileCopyrightText: 2026 Arkadiusz Bokowy and contributors
 # SPDX-License-Identifier: MIT
 ---
 Checks:
   boost-*,
   modernize-*,
-  performace-*,
+  performance-*,
   portability-*,
+  -portability-avoid-pragma-once,
+  -portability-template-virtual-member-function,
 HeaderFilterRegex: .*
