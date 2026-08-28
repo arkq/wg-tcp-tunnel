@@ -126,13 +126,18 @@ auto tcp2udp::tcp::session_raw::do_send_handler(const boost::system::error_code 
 		return;
 	}
 
-	// At this point we know that the control header was valid
-	if (!std::exchange(m_initialized, true)) {
-		// Start handling UDP packets
-		do_recv();
+	try {
+		// Forward payload to the UDP destination
+		m_socket_udp_dest.send(m_buffer_send.data());
+		// If the destination socket has accepted the payload we can assume that
+		// the TCP connection is legit. Start the UDP receiver if not started yet.
+		if (!std::exchange(m_initialized, true)) {
+			// Start handling UDP packets
+			do_recv();
+		}
+	} catch (const std::exception & e) {
+		LOG(error) << "session-raw::send [" << to_string() << "]: " << e.what();
 	}
-
-	m_socket_udp_dest.send(m_buffer_send.data());
 
 	// Handle next TCP packet
 	do_send_init();
@@ -164,7 +169,7 @@ auto tcp2udp::tcp::session_raw::do_recv_handler(const boost::system::error_code 
 	                              m_socket_udp_dest.local_endpoint().port(),
 	                              static_cast<uint16_t>(length));
 	const std::array<asio::const_buffer, 2> iovec{ asio::buffer(&header, sizeof(header)),
-		                                           asio::buffer(m_buffer_recv, length) };
+	                                               asio::buffer(m_buffer_recv, length) };
 	m_socket.send(iovec);
 
 	// Handle next UDP packet
@@ -235,8 +240,9 @@ auto tcp2udp::tcp::session_ws::do_send_handler(const boost::system::error_code &
 		return;
 	}
 
+	LOG(trace) << "session-ws::send [" << to_string(true) << "]: len=" << length;
+
 	try {
-		LOG(trace) << "session-ws::send [" << to_string(true) << "]: len=" << length;
 		m_socket_udp_dest.send(m_buffer_send.data());
 	} catch (const std::exception & e) {
 		LOG(error) << "session-ws::send [" << to_string() << "]: " << e.what();

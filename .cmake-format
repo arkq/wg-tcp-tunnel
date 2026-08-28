@@ -5,3 +5,5 @@ format:
   tab_size: 4
   use_tabchars: true
   fractional_tab_policy: round-up
+markup:
+  first_comment_is_literal: true
